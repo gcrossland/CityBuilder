@@ -1,9 +1,14 @@
+# -*- coding: utf-8 -*-
+# ------------------------------------------------------------------------------
+#  City Building Library
+#  © Geoff Crossland 2016
+# ------------------------------------------------------------------------------
 import sys
 import itertools
 import array
 
-
-
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # x, z coords
 # width, height always positive (i.e. box is from north-west to south-east)
 # inclusive on north-west sides; exclusive on south-east sides
@@ -20,14 +25,17 @@ class Box (object):
     self.x1 = x1
     self.z1 = z1
 
-  def __eq__ (self, o):
-    if not isinstance(o, Box):
-      return NotImplemented
+  def eq (self, o):
+    assert isinstance(o, Box)
     return self.x0 == o.x0 and self.z0 == o.z0 and self.x1 == o.x1 and self.z1 == o.z1
 
-  # XXXX
-  #def __hash__ (self):
-  #  return self.x0 ^ (self.z0 << 8) ^ (self.x1 << 16) ^ (self.z1 << 24)
+  @staticmethod
+  def eqs (o0, o1):
+    if o0 is None:
+      return o1 is None
+    if o1 is None:
+      return False
+    return o0.eq(o1)
 
   def getIntersection (self, o):
     assert isinstance(o, Box)
@@ -54,7 +62,7 @@ class Shape (object):
 
   def intersects (self, o, boundingBoxIntersection):
     assert isinstance(o, Shape)
-    assert boundingBoxIntersection == self.getBoundingBox().getIntersection(o.getBoundingBox())
+    assert Box.eqs(boundingBoxIntersection, self.getBoundingBox().getIntersection(o.getBoundingBox()))
 
     if boundingBoxIntersection is None:
       return False
@@ -64,13 +72,13 @@ class Shape (object):
 
   def contains (self, o, boundingBoxIntersection):
     assert isinstance(o, Shape)
-    assert boundingBoxIntersection == self.getBoundingBox().getIntersection(o.getBoundingBox())
+    assert Box.eqs(boundingBoxIntersection, self.getBoundingBox().getIntersection(o.getBoundingBox()))
 
     if boundingBoxIntersection is None:
       return False
     if isinstance(self, RectangularShape) and isinstance(o, RectangularShape):
-      assert self._box.contains(o.box) == (boundingBoxIntersection == o._box)
-      return boundingBoxIntersection == o._box
+      assert self._box.contains(o._box) == (boundingBoxIntersection.eq(o._box))
+      return boundingBoxIntersection.eq(o._box)
     assert False # TODO
 
   def getMembershipGenerator (self, subBox):
@@ -92,7 +100,7 @@ class ShapeSet (object):
   def __init__ (self):
     self._shapes = []
 
-  def add (self, o)
+  def add (self, o):
     assert isinstance(o, Shape)
 
     self._shapes.append(o)
@@ -110,6 +118,18 @@ class ShapeSet (object):
   def intersects (self, o):
     return next(self.getIntersectors(o), None) is not None
 
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+class World (object):
+  def placeStraightRoadTile (self, shape, direction):
+    raise NotImplementedError
+
+  def placeTJunctionRoadTile (self, shape, direction, branchDirection):
+    raise NotImplementedError
+
+  def placeMarker (self, x, z):
+    raise NotImplementedError
+
 WEST = 1 << 1
 EAST = 1 << 0
 NORTH = 1 << 3
@@ -120,6 +140,8 @@ SOUTH_WEST = WEST | SOUTH
 SOUTH_EAST = EAST | SOUTH
 
 class Tile (object):
+  def place (self, world):
+    raise NotImplementedError
 
 class RoadTile (Tile):
   def __init__ (self, shape, nextDirection, nextX, nextZ):
@@ -153,43 +175,46 @@ class StraightRoadTile (RoadTile):
     assert isinstance(z, int)
 
     if direction == WEST:
-      nextX = x - LEN
+      nextX = x - StraightRoadTile.LEN
       nextZ = z
-      shape = RectangularShape(nextX + 1, z - HLEN, x + 1, z - HLEN + LEN)
+      shape = RectangularShape(nextX + 1, z - StraightRoadTile.HLEN, x + 1, z - StraightRoadTile.HLEN + StraightRoadTile.LEN)
     elif direction == EAST:
-      nextX = x + LEN
+      nextX = x + StraightRoadTile.LEN
       nextZ = z
-      shape = RectangularShape(x, z - HLEN, nextX, z - HLEN + LEN)
+      shape = RectangularShape(x, z - StraightRoadTile.HLEN, nextX, z - StraightRoadTile.HLEN + StraightRoadTile.LEN)
     elif direction == NORTH:
       nextX = x
-      nextZ = z - LEN
-      shape = RectangularShape(x - HLEN, nextZ + 1, x - HLEN + LEN, z + 1)
+      nextZ = z - StraightRoadTile.LEN
+      shape = RectangularShape(x - StraightRoadTile.HLEN, nextZ + 1, x - StraightRoadTile.HLEN + StraightRoadTile.LEN, z + 1)
     elif direction == SOUTH:
       nextX = x
-      nextZ = z + LEN
-      shape = RectangularShape(x - HLEN, z, x - HLEN + LEN, nextZ)
+      nextZ = z + StraightRoadTile.LEN
+      shape = RectangularShape(x - StraightRoadTile.HLEN, z, x - StraightRoadTile.HLEN + StraightRoadTile.LEN, nextZ)
 
-    RoadTile.__init__(self, shape, direction, nextX, nextZ):
+    RoadTile.__init__(self, shape, direction, nextX, nextZ)
     self._x = x
     self._z = z
 
+  def place (self, world):
+    world.placeStraightRoadTile(self.getShape(), self.getNextDirection())
+
 class BranchBaseRoadTile (RoadTile):
-  def __init__ (self, shape, nextDirection, nextX, nextZ, branchNextDirection, branchNextX, branchNextZ):
+  def __init__ (self, shape, nextDirection, nextX, nextZ, branchDirection, branchX, branchZ):
     RoadTile.__init__(self, shape, nextDirection, nextX, nextZ)
-    self._branchNextDirection = branchNextDirection
-    self._branchNextX = branchNextX
-    self._branchNextZ = branchNextZ
+    self._branchDirection = branchDirection
+    self._branchX = branchX
+    self._branchZ = branchZ
     self._branchRoadTiles = []
     # TODO self._branchGeneration?
 
-  def getBranchNextDirection (self):
-    return self._branchNextDirection
+  def getBranchDirection (self):
+    return self._branchDirection
 
-  def getBranchNextX (self):
-    return self._branchNextX
+  def getBranchX (self):
+    return self._branchX
 
-  def getBranchNextZ (self):
-    return self._branchNextZ
+  def getBranchZ (self):
+    return self._branchZ
 
   def getBranchRoadTiles (self):
     return self._branchRoadTiles
@@ -206,20 +231,25 @@ class TJunctionRoadTile (BranchBaseRoadTile):
     assert isinstance(shape, RectangularShape)
     box = shape.getBoundingBox()
     if branchDirection == WEST:
-      branchNextX = box.x0 - 1
-      branchNextZ = box.z0 + StraightRoadTile.HLEN
+      branchX = box.x0 - 1
+      branchZ = box.z0 + StraightRoadTile.HLEN
     elif branchDirection == EAST:
-      branchNextX = box.x1
-      branchNextZ = box.z0 + StraightRoadTile.HLEN
+      branchX = box.x1
+      branchZ = box.z0 + StraightRoadTile.HLEN
     elif branchDirection == NORTH:
-      branchNextX = box.x0 + StraightRoadTile.HLEN
-      branchNextZ = box.z0 - 1
+      branchX = box.x0 + StraightRoadTile.HLEN
+      branchZ = box.z0 - 1
     elif branchDirection == SOUTH:
-      branchNextX = box.x0 + StraightRoadTile.HLEN
-      branchNextZ = box.z1
-    BranchBaseRoadTile.__init__(self, shape, o.getNextDirection(), o.getNextX(), o.getNextZ(), branchDirection, branchNextX, branchNextZ)
-    self._x = o.x
-    self._z = o.z
+      branchX = box.x0 + StraightRoadTile.HLEN
+      branchZ = box.z1
+    BranchBaseRoadTile.__init__(self, shape, o.getNextDirection(), o.getNextX(), o.getNextZ(), branchDirection, branchX, branchZ)
+    self._x = o._x
+    self._z = o._z
+
+  def place (self, world):
+    world.placeTJunctionRoadTile(self.getShape(), self.getNextDirection(), self.getBranchDirection())
+    for tile in self.getBranchRoadTiles():
+      tile.place(world)
 
 class PlotTile (Tile):
   pass
@@ -253,7 +283,7 @@ class City (object):
     while True:
       tile = StraightRoadTile(direction, x, z)
       tileShape = tile.getShape()
-      if not self._shapeInBoundary(tileShape)
+      if not self._shapeInBoundary(tileShape):
         break
 
       roadTiles.append(tile)
@@ -263,77 +293,110 @@ class City (object):
       x = tile.getNextX()
       z = tile.getNextZ()
 
-  def render (self):
-    viewport = self._boundary.getBoundingBox()
-    viewportWidth = viewport.x1 - viewport.x0
-    vBuffer = array.array('B', itertools.repeat(ord(' '), (viewport.z1 - viewport.z0) * viewportWidth))
-    def getI (x, z):
-      assert isinstance(x, int)
-      assert isinstance(z, int)
-      assert x >= viewport.x0
-      assert x < viewport.x1
-      assert z >= viewport.z0
-      assert z < viewport.z1
-      return (z - viewport.z0) * viewportWidth + (x - viewport.x0)
-    def drawWE (c, x0, z0, l):
-      assert isinstance(l, int)
-      assert l >= 0
-      assert x0 + l <= viewport.x1
-      i = getI(x0, z0)
-      pel = ord(c)
-      for _ in xrange(0, l):
-        vBuffer[i] = pel
-        i += 1
-    def drawNS (c, x0, z0, l):
-      assert isinstance(l, int)
-      assert l >= 0
-      assert z0 + l <= viewport.z1
-      i = getI(x0, z0)
-      pel = ord(c)
-      for _ in xrange(0, l):
-        vBuffer[i] = pel
-        i += viewportWidth
-    def drawBox (c, box):
-      drawWE(c, box.x0, box.z0, box.x1 - box.x0)
-      drawWE(c, box.x0, box.z1 - 1, box.x1 - box.x0)
-      drawNS(c, box.x0, box.z0, box.z1 - box.x0)
-      drawNS(c, box.x1 - 1, box.z0, box.z1 - box.x0)
-
-    DIRECTION_STRONGS = {WEST: 'W', EAST: 'E', NORTH: 'N', SOUTH: 'S'}
-    DIRECTION_WEAKS = {WEST: 'w', EAST: 'e', NORTH: 'n', SOUTH: 's'}
-    def renderRoad (tiles, generation):
-      for tile in tiles:
-        if isinstance(tile, StraightRoadTile) or isinstance(tile, TJunctionRoadTile):
-          assert isinstance(tile.getShape(), RectangularShape) # TODO for now
-          box = tile.getShape().getBoundingBox()
-          direction = tile.getNextDirection()
-          drawBox(DIRECTION_STRONGS[direction], box)
-          drawBox(DIRECTION_WEAKS[direction], Box(box.x0 + 1, box.z0 + 1, box.x1 - 1, box.z1 - 1))
-          if direction in (WEST, EAST):
-            drawWE('-', box.x0 + 2, (box.z0 + box.z1) / 2, box.x1 - box.x0 - 4)
-          elif direction in (NORTH, SOUTH):
-            drawNS('|', (box.x0 + box.x1) / 2, box.z0 + 2, box.z1 - box.z0 - 4)
-          else:
-            assert False
-
-          if isinstance(tile, TJunctionRoadTile):
-            branchDirection = tile.getBranchNextDirection()
-            l = (box.x1 - box.x0 - 4) / 2
-            assert l == (box.z1 - box.z0 - 4) / 2
-            if branchDirection == WEST:
-              drawWE('-', box.x0 + 2, (box.z0 + box.z1) / 2, l)
-            elif branchDirection == EAST:
-              drawWE('-', (box.x0 + box.x1) / 2 + 1, (box.z0 + box.z1) / 2, l)
-            elif branchDirection == NORTH:
-              drawNS('|', (box.x0 + box.x1) / 2, box.z0 + 2, l)
-            elif branchDirection == SOUTH:
-              drawNS('|', (box.x0 + box.x1) / 2, (box.z0 + box.z1) / 2 + 1, l)
-            else:
-              assert False
-            renderRoad(tile.getBranchRoadTiles(), generation + 1)
-        else:
-          assert False
-
+  def place (self, world):
     for roadTiles in self._roads:
-      renderRoad(roadTiles, 0)
-    drawWE('X', self._centreX, self._centreZ, 1)
+      for roadTile in roadTiles:
+        roadTile.place(world)
+      world.placeMarker(self._centreX, self._centreZ)
+
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+class Display (object):
+  def __init__ (self, viewport):
+    assert isinstance(viewport, Box)
+    self._viewport = viewport
+    self._viewportWidth = viewport.x1 - viewport.x0
+    self._vBuffer = array.array('B', itertools.repeat(ord(' '), (viewport.z1 - viewport.z0) * self._viewportWidth))
+
+  def _getI (self, x, z):
+    assert isinstance(x, int)
+    assert isinstance(z, int)
+    viewport = self._viewport
+    assert x >= viewport.x0
+    assert x < viewport.x1
+    assert z >= viewport.z0
+    assert z < viewport.z1
+    return (z - viewport.z0) * self._viewportWidth + (x - viewport.x0)
+
+  def drawWE (self, c, x0, z0, l):
+    assert isinstance(l, int)
+    assert l >= 0
+    assert x0 + l <= self._viewport.x1
+    i = self._getI(x0, z0)
+    pel = ord(c)
+    vBuffer = self._vBuffer
+    for _ in xrange(0, l):
+      vBuffer[i] = pel
+      i += 1
+
+  def drawNS (self, c, x0, z0, l):
+    assert isinstance(l, int)
+    assert l >= 0
+    assert z0 + l <= self._viewport.z1
+    i = self._getI(x0, z0)
+    pel = ord(c)
+    vBuffer = self._vBuffer
+    viewportWidth = self._viewportWidth
+    for _ in xrange(0, l):
+      vBuffer[i] = pel
+      i += viewportWidth
+
+  def drawBox (self, c, box):
+    dX = box.x1 - box.x0
+    self.drawWE(c, box.x0, box.z0, dX)
+    self.drawWE(c, box.x0, box.z1 - 1, dX)
+    dZ = box.z1 - box.z0 - 2
+    if dZ > 0:
+      z = box.z0 + 1
+      self.drawNS(c, box.x0, z, dZ)
+      self.drawNS(c, box.x1 - 1, z, dZ)
+
+  def get (self):
+    viewport = self._viewport
+    viewportWidth = self._viewportWidth
+    vBuffer = self._vBuffer
+    return [vBuffer[i:i + viewportWidth].tostring() for i in xrange(0, (viewport.z1 - viewport.z0) * viewportWidth, viewportWidth)]
+
+class BitmapWorld (World):
+  def __init__ (self, boundingBox):
+    self._d = Display(boundingBox)
+
+  DIRECTION_STRONGS = {WEST: 'W', EAST: 'E', NORTH: 'N', SOUTH: 'S'}
+  DIRECTION_WEAKS = {WEST: 'w', EAST: 'e', NORTH: 'n', SOUTH: 's'}
+
+  def placeStraightRoadTile (self, shape, direction):
+    assert isinstance(shape, RectangularShape) # TODO for now
+    box = shape.getBoundingBox()
+
+    self._d.drawBox(BitmapWorld.DIRECTION_STRONGS[direction], box)
+    self._d.drawBox(BitmapWorld.DIRECTION_WEAKS[direction], Box(box.x0 + 1, box.z0 + 1, box.x1 - 1, box.z1 - 1))
+    if direction in (WEST, EAST):
+      self._d.drawWE('-', box.x0 + 2, (box.z0 + box.z1) / 2, box.x1 - box.x0 - 4)
+    elif direction in (NORTH, SOUTH):
+      self._d.drawNS('|', (box.x0 + box.x1) / 2, box.z0 + 2, box.z1 - box.z0 - 4)
+    else:
+      assert False
+
+  def placeTJunctionRoadTile (self, shape, direction, branchDirection):
+    box = shape.getBoundingBox()
+
+    self.placeStraightRoadTile(shape, direction)
+
+    l = (box.x1 - box.x0 - 4) / 2
+    assert l == (box.z1 - box.z0 - 4) / 2
+    if branchDirection == WEST:
+      self._d.drawWE('-', box.x0 + 2, (box.z0 + box.z1) / 2, l)
+    elif branchDirection == EAST:
+      self._d.drawWE('-', (box.x0 + box.x1) / 2 + 1, (box.z0 + box.z1) / 2, l)
+    elif branchDirection == NORTH:
+      self._d.drawNS('|', (box.x0 + box.x1) / 2, box.z0 + 2, l)
+    elif branchDirection == SOUTH:
+      self._d.drawNS('|', (box.x0 + box.x1) / 2, (box.z0 + box.z1) / 2 + 1, l)
+    else:
+      assert False
+
+  def placeMarker (self, x, z):
+    self._d.drawWE('X', x, z, 1)
+
+  def get (self):
+    return self._d.get()
