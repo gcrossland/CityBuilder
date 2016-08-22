@@ -1,4 +1,4 @@
-from citybuilder import StraightRoadTile, TJunctionRoadTile, NORTH, SOUTH, EAST, WEST, Box, BitmapWorld
+from citybuilder import StraightRoadTile, TJunctionRoadTile, NORTH, SOUTH, EAST, WEST, RectangularShape, BitmapWorld
 
 def T ():
   x = 50
@@ -38,7 +38,7 @@ def T ():
       t2.append(TJunctionRoadTile(t2[-1].getNextDirection(), t2[-1].getNextX(), t2[-1].getNextZ(), WEST, 3))
     t1.append(StraightRoadTile(t1[-1].getNextDirection(), t1[-1].getNextX(), t1[-1].getNextZ()))
 
-  world = BitmapWorld(Box(0, 0, x * 2, int(z * 1.5)))
+  world = BitmapWorld(RectangularShape(0, 0, x * 2, int(z * 1.5)))
   for tile in t0:
     tile.place(world)
   world.placeMarker(x, z)

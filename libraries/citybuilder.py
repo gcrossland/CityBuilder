@@ -9,10 +9,35 @@ import array
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
-# x, z coords
-# width, height always positive (i.e. box is from north-west to south-east)
-# inclusive on north-west sides; exclusive on south-east sides
-class Box (object):
+class Shape (object):
+  def getBoundingBox (self):
+    raise NotImplementedError
+
+  def intersects (self, o, boundingBoxIntersection):
+    assert isinstance(o, Shape)
+    assert RectangularShape.eqs(boundingBoxIntersection, self.getBoundingBox().getIntersection(o.getBoundingBox()))
+
+    if boundingBoxIntersection is None:
+      return False
+    if isinstance(self, RectangularShape) and isinstance(o, RectangularShape):
+      return True
+    assert False # TODO
+
+  def contains (self, o, boundingBoxIntersection):
+    assert isinstance(o, Shape)
+    assert RectangularShape.eqs(boundingBoxIntersection, self.getBoundingBox().getIntersection(o.getBoundingBox()))
+
+    if boundingBoxIntersection is None:
+      return False
+    if isinstance(self, RectangularShape) and isinstance(o, RectangularShape):
+      return boundingBoxIntersection.eq(o)
+    assert False # TODO
+
+  def getMembershipGenerator (self, subBox):
+    assert isinstance(subBox, RectangularShape)
+    raise NotImplementedError
+
+class RectangularShape (Shape):
   def __init__ (self, x0, z0, x1, z1):
     assert isinstance(x0, int)
     assert isinstance(z0, int)
@@ -26,7 +51,7 @@ class Box (object):
     self.z1 = z1
 
   def eq (self, o):
-    assert isinstance(o, Box)
+    assert isinstance(o, RectangularShape)
     return self.x0 == o.x0 and self.z0 == o.z0 and self.x1 == o.x1 and self.z1 == o.z1
 
   @staticmethod
@@ -38,7 +63,7 @@ class Box (object):
     return o0.eq(o1)
 
   def getIntersection (self, o):
-    assert isinstance(o, Box)
+    assert isinstance(o, RectangularShape)
     x0 = max(self.x0, o.x0)
     x1 = min(self.x1, o.x1)
     if x0 >= x1:
@@ -47,53 +72,14 @@ class Box (object):
     z1 = min(self.z1, o.z1)
     if z0 >= z1:
       return None
-    return Box(x0, z0, x1, z1)
-
-  def intersects (self, o):
-    return self.getIntersection(o) is not None
-
-  def contains (self, o):
-    assert isinstance(o, Box)
-    return self.x0 <= o.x0 and self.z0 <= o.z0 and self.x1 >= o.x1 and self.z1 >= o.z1
-
-class Shape (object):
-  def getBoundingBox (self):
-    raise NotImplementedError
-
-  def intersects (self, o, boundingBoxIntersection):
-    assert isinstance(o, Shape)
-    assert Box.eqs(boundingBoxIntersection, self.getBoundingBox().getIntersection(o.getBoundingBox()))
-
-    if boundingBoxIntersection is None:
-      return False
-    if isinstance(self, RectangularShape) and isinstance(o, RectangularShape):
-      return True
-    assert False # TODO
-
-  def contains (self, o, boundingBoxIntersection):
-    assert isinstance(o, Shape)
-    assert Box.eqs(boundingBoxIntersection, self.getBoundingBox().getIntersection(o.getBoundingBox()))
-
-    if boundingBoxIntersection is None:
-      return False
-    if isinstance(self, RectangularShape) and isinstance(o, RectangularShape):
-      assert self._box.contains(o._box) == (boundingBoxIntersection.eq(o._box))
-      return boundingBoxIntersection.eq(o._box)
-    assert False # TODO
-
-  def getMembershipGenerator (self, subBox):
-    raise NotImplementedError
-
-class RectangularShape (Shape):
-  def __init__ (self, x0, z0, x1, z1):
-    self._box = Box(x0, z0, x1, z1)
+    return RectangularShape(x0, z0, x1, z1)
 
   def getBoundingBox (self):
-    return self._box
+    return self
 
   def getMembershipGenerator (self, subBox):
-    assert isinstance(subBox, Box)
-    assert self.box.contains(subBox)
+    assert isinstance(subBox, RectangularShape)
+    assert self.contains(subBox, self.getIntersection(subBox))
     return itertools.repeat(True, (subBox.x1 - subBox.x0) * (subBox.z1 - subBox.z0))
 
 class ShapeSet (object):
@@ -229,7 +215,7 @@ class TJunctionRoadTile (BranchBaseRoadTile):
 
     shape = o.getShape()
     assert isinstance(shape, RectangularShape)
-    box = shape.getBoundingBox()
+    box = shape
     if branchDirection == WEST:
       branchX = box.x0 - 1
       branchZ = box.z0 + StraightRoadTile.HLEN
@@ -303,7 +289,7 @@ class City (object):
 # ------------------------------------------------------------------------------
 class Display (object):
   def __init__ (self, viewport):
-    assert isinstance(viewport, Box)
+    assert isinstance(viewport, RectangularShape)
     self._viewport = viewport
     self._viewportWidth = viewport.x1 - viewport.x0
     self._vBuffer = array.array('B', itertools.repeat(ord(' '), (viewport.z1 - viewport.z0) * self._viewportWidth))
@@ -342,6 +328,7 @@ class Display (object):
       i += viewportWidth
 
   def drawBox (self, c, box):
+    assert isinstance(box, RectangularShape)
     dX = box.x1 - box.x0
     self.drawWE(c, box.x0, box.z0, dX)
     self.drawWE(c, box.x0, box.z1 - 1, dX)
@@ -366,10 +353,10 @@ class BitmapWorld (World):
 
   def placeStraightRoadTile (self, shape, direction):
     assert isinstance(shape, RectangularShape) # TODO for now
-    box = shape.getBoundingBox()
+    box = shape
 
     self._d.drawBox(BitmapWorld.DIRECTION_STRONGS[direction], box)
-    self._d.drawBox(BitmapWorld.DIRECTION_WEAKS[direction], Box(box.x0 + 1, box.z0 + 1, box.x1 - 1, box.z1 - 1))
+    self._d.drawBox(BitmapWorld.DIRECTION_WEAKS[direction], RectangularShape(box.x0 + 1, box.z0 + 1, box.x1 - 1, box.z1 - 1))
     if direction in (WEST, EAST):
       self._d.drawWE('-', box.x0 + 2, (box.z0 + box.z1) / 2, box.x1 - box.x0 - 4)
     elif direction in (NORTH, SOUTH):
@@ -378,7 +365,7 @@ class BitmapWorld (World):
       assert False
 
   def placeTJunctionRoadTile (self, shape, direction, branchDirection):
-    box = shape.getBoundingBox()
+    box = shape
 
     self.placeStraightRoadTile(shape, direction)
 
