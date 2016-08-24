@@ -75,7 +75,7 @@ class RectangularShape (Shape):
     return RectangularShape(x0, z0, x1, z1)
 
   def transform (self, dX, dZ):
-    return Box(self.x0 + dX, self.z0 + dZ, self.x1 + dX, self.z1 + dZ)
+    return RectangularShape(self.x0 + dX, self.z0 + dZ, self.x1 + dX, self.z1 + dZ)
 
   def getBoundingBox (self):
     return self
@@ -86,8 +86,17 @@ class RectangularShape (Shape):
     return itertools.repeat(True, (subBox.x1 - subBox.x0) * (subBox.z1 - subBox.z0))
 
 class ShapeSet (object):
-  def __init__ (self):
-    self._shapes = set()
+  def __init__ (self, shapes = None):
+    if shapes is None:
+      shapes = set()
+    else:
+      assert isinstance(shapes, set)
+      assert len([None for s in shapes if not isinstance(s, Shape)]) == 0
+      shapes = shapes.copy()
+    self._shapes = shapes
+
+  def clone (self):
+    return ShapeSet(self._shapes)
 
   def add (self, o):
     assert isinstance(o, Shape)
@@ -280,7 +289,7 @@ class StraightRoadTile (RoadTile):
       dX = 0
       dZ = StraightRoadTile.LEN
 
-    return RectangularShape(parentShape.getBoundingBox().transform(dX, dZ))
+    return parentShape.getBoundingBox().transform(dX, dZ)
 
   @staticmethod
   def create (direction, x, z, shapeSet):
@@ -383,7 +392,7 @@ class City (object):
   def __init__ (self, centreX, centreZ, boundary, boundaryExclusions):
     assert isinstance(centreX, int)
     assert isinstance(centreZ, int)
-    assert isinstance(boundary, Shape)
+    assert isinstance(boundary, RectangularShape)
     assert isinstance(boundaryExclusions, ShapeSet)
     # TODO target population, initial target population density
 
@@ -392,27 +401,33 @@ class City (object):
     self._boundary = boundary
     self._boundaryExclusions = boundaryExclusions
     self._roads = ([], [])
-    self._tileShapes = ShapeSet()
 
+    tileShapeSet = self._createTileShapeSet()
     for roadTiles, direction, x, z in itertools.izip(self._roads, (WEST, EAST), (self._centreX - 1, self._centreX), (self._centreZ, self._centreZ)):
-      self._buildMainRoad(roadTiles, direction, x, z)
+      self._buildMainRoad(roadTiles, direction, x, z, tileShapeSet)
 
-  def _shapeInBoundary (self, shape):
-    if not self._boundary.contains(shape, self._boundary.getBoundingBox().getIntersection(shape.getBoundingBox())):
-      return False
-    if self._boundaryExclusions.intersects(shape):
-      return False
-    return True
+  @staticmethod
+  def invertRectangularShape (s, max = 0x3FFFFFFF):
+    assert isinstance(s, RectangularShape)
+    return (
+      RectangularShape(-max, -max, s.x0, max),
+      RectangularShape(s.x1, -max, max, max),
+      RectangularShape(s.x0, -max, s.x1, s.z0),
+      RectangularShape(s.x0, s.z1, s.x1, max)
+    )
 
-  def _buildMainRoad (self, roadTiles, direction, x, z):
+  def _createTileShapeSet (self):
+    shapeSet = self._boundaryExclusions.clone()
+    for shape in City.invertRectangularShape(self._boundary):
+      shapeSet.add(shape)
+    return shapeSet
+
+  def _buildMainRoad (self, roadTiles, direction, x, z, tileShapeSet):
     while True:
-      tile = StraightRoadTile(direction, x, z)
-      tileShape = tile.getShape()
-      if not self._shapeInBoundary(tileShape):
+      tile = StraightRoadTile.create(direction, x, z, tileShapeSet)
+      if tile is None:
         break
-
       roadTiles.append(tile)
-      self._tileShapes.add(tileShape)
 
       direction = tile.getNextDirection()
       x = tile.getNextX()
