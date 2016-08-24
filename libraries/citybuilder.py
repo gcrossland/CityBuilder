@@ -147,20 +147,31 @@ class Tile (object):
     raise NotImplementedError
 
 class RoadTile (Tile):
-  def __init__ (self, shape, nextDirection, nextX, nextZ):
+  def __init__ (self, direction, x, z, shape, nextX, nextZ):
+    self._direction = direction
+    self._x = x
+    self._z = z
     self._shape = shape
-    self._nextDirection = nextDirection
     self._nextX = nextX
     self._nextZ = nextZ
     self._leftPlotShapes = []
     self._rightPlotShapes = []
     # TODO self._endPlotTiles?
 
+  def getDirection (self):
+    return self._direction
+
+  def getX (self):
+    return self._x
+
+  def getZ (self):
+    return self._z
+
   def getShape (self):
     return self._shape
 
   def getNextDirection (self):
-    return self._nextDirection
+    raise NotImplementedError
 
   def getNextX (self):
     return self._nextX
@@ -241,9 +252,10 @@ class StraightRoadTile (RoadTile):
       nextZ = z + StraightRoadTile.LEN
       shape = RectangularShape(x - StraightRoadTile.HLEN, z, x - StraightRoadTile.HLEN + StraightRoadTile.LEN, nextZ)
 
-    RoadTile.__init__(self, shape, direction, nextX, nextZ)
-    self._x = x
-    self._z = z
+    RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ)
+
+  def getNextDirection (self):
+    return self.getDirection()
 
   def _getNextPlotShape (self, shapes, reldirection):
     if len(shapes) == 0:
@@ -254,7 +266,7 @@ class StraightRoadTile (RoadTile):
         return None
     assert isinstance(parentShape, RectangularShape)
 
-    plotDirection = RELDIRECTIONS_TO_DIRECTIONS[self.getNextDirection()][reldirection]
+    plotDirection = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
     if plotDirection == WEST:
       dX = -StraightRoadTile.LEN
       dZ = 0
@@ -283,9 +295,9 @@ class StraightRoadTile (RoadTile):
     return tile
 
   def place (self, world):
-    world.placeStraightRoadTile(self.getShape(), self.getNextDirection())
+    world.placeStraightRoadTile(self.getShape(), self.getDirection())
     for shapes, reldirection in itertools.izip((self._leftPlotShapes, self._rightPlotShapes), (LEFT, RIGHT)):
-      direction = RELDIRECTIONS_TO_DIRECTIONS[self.getNextDirection()][reldirection]
+      direction = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
       for shape in shapes:
         if shape is not None:
           world.placePlot(shape, direction)
@@ -301,9 +313,8 @@ class BranchBaseRoadTile (RoadTile):
   def getBranchReldirection (self):
     return self._branchReldirection
 
-  # TODO not self.getNextDirection()
   def getBranchDirection (self):
-    return RELDIRECTIONS_TO_DIRECTIONS[self.getNextDirection()][self._branchReldirection]
+    return RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][self._branchReldirection]
 
   def getBranchX (self):
     return self._branchX
@@ -356,9 +367,9 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
     (self._leftPlotShapes, self._rightPlotShapes)[self.getBranchReldirection()].append(None)
 
   def place (self, world):
-    world.placeTJunctionRoadTile(self.getShape(), self.getNextDirection(), self.getBranchDirection())
+    world.placeTJunctionRoadTile(self.getShape(), self.getDirection(), self.getBranchDirection())
     for shapes, reldirection in itertools.izip((self._leftPlotShapes, self._rightPlotShapes), (LEFT, RIGHT)):
-      direction = RELDIRECTIONS_TO_DIRECTIONS[self.getNextDirection()][reldirection]
+      direction = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
       for shape in shapes:
         if shape is not None:
           world.placePlot(shape, direction)
