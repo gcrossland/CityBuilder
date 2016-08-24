@@ -74,6 +74,9 @@ class RectangularShape (Shape):
       return None
     return RectangularShape(x0, z0, x1, z1)
 
+  def transform (self, dX, dZ):
+    return Box(self.x0 + dX, self.z0 + dZ, self.x1 + dX, self.z1 + dZ)
+
   def getBoundingBox (self):
     return self
 
@@ -84,12 +87,22 @@ class RectangularShape (Shape):
 
 class ShapeSet (object):
   def __init__ (self):
-    self._shapes = []
+    self._shapes = set()
 
   def add (self, o):
     assert isinstance(o, Shape)
 
-    self._shapes.append(o)
+    self._shapes.add(o)
+
+  def addIfNotIntersecting (self, o):
+    if self.intersects(o):
+      return False
+    else:
+      self.add(o)
+      return True
+
+  def remove (self, o):
+    self._shapes.remove(o)
 
   # TODO do we need to be able to go from Shapes to their parent Tiles?
   # -> well, we can always monkey on a parent field if we do want to...
@@ -125,6 +138,10 @@ NORTH_EAST = EAST | NORTH
 SOUTH_WEST = WEST | SOUTH
 SOUTH_EAST = EAST | SOUTH
 
+LEFT = 0
+RIGHT = 1
+RELDIRECTIONS_TO_DIRECTIONS = {WEST: (SOUTH, NORTH), EAST: (NORTH, SOUTH), NORTH: (WEST, EAST), SOUTH: (EAST, WEST)}
+
 class Tile (object):
   def place (self, world):
     raise NotImplementedError
@@ -135,8 +152,8 @@ class RoadTile (Tile):
     self._nextDirection = nextDirection
     self._nextX = nextX
     self._nextZ = nextZ
-    # TODO self._leftPlotTiles? ([] or None) (or maybe just PlotShapes?)
-    # TODO self._rightPlotTiles?
+    self._leftPlotShapes = []
+    self._rightPlotShapes = []
     # TODO self._endPlotTiles?
 
   def getShape (self):
@@ -150,6 +167,53 @@ class RoadTile (Tile):
 
   def getNextZ (self):
     return self._nextZ
+
+  def _getNextPlotShape (self, shapes, reldirection):
+    raise NotImplementedError
+
+  def _addNextPlotShape (self, shapes, reldirection, shapeSet):
+    assert shapes in (self._leftPlotShapes, self._rightPlotShapes)
+    assert reldirection in (LEFT, RIGHT)
+
+    shape = self._getNextPlotShape(shapes, reldirection)
+    if shape is None:
+      assert shapes[-1] is None
+      return None
+
+    if not shapeSet.addIfNotIntersecting(shape):
+      shape = None
+    shapes.append(shape)
+    return shape
+
+  def _addMinimalPlotShapes (self, minCount, shapeSet):
+    l = self._addNextPlotShape(self._leftPlotShapes, LEFT, shapeSet)
+    r = self._addNextPlotShape(self._rightPlotShapes, RIGHT, shapeSet)
+    if (l is not None) + (r is not None) < minCount:
+      for shape in (l, r):
+        if shape is not None:
+          shapeSet.remove(shape)
+      return False
+    return True
+
+  def addNextPlotShapes (self, shapeSet):
+    l = self._addNextPlotShape(self._leftPlotShapes, LEFT, shapeSet)
+    r = self._addNextPlotShape(self._rightPlotShapes, RIGHT, shapeSet)
+    return l is not None or r is not None
+
+  def _reminimalisePlotShapes (self, shapes):
+    assert shapes in (self._leftPlotShapes, self._rightPlotShapes)
+
+    if len(shapes) != 0:
+      del shapes[1:]
+      if shapes[0] is None:
+        del shapes[0]
+
+  def reminimalisePlotShapes (self):
+    self._reminimalisePlotShapes(self._leftPlotShapes)
+    self._reminimalisePlotShapes(self._rightPlotShapes)
+
+  def getPlotShapes (self):
+    return [shape for shape in itertools.chain(self._leftPlotShapes, self._rightPlotShapes) if shape is not None]
 
 class StraightRoadTile (RoadTile):
   LEN = 11
@@ -181,20 +245,65 @@ class StraightRoadTile (RoadTile):
     self._x = x
     self._z = z
 
+  def _getNextPlotShape (self, shapes, reldirection):
+    if len(shapes) == 0:
+      parentShape = self.getShape()
+    else:
+      parentShape = shapes[-1]
+      if parentShape is None:
+        return None
+    assert isinstance(parentShape, RectangularShape)
+
+    plotDirection = RELDIRECTIONS_TO_DIRECTIONS[self.getNextDirection()][reldirection]
+    if plotDirection == WEST:
+      dX = -StraightRoadTile.LEN
+      dZ = 0
+    elif plotDirection == EAST:
+      dX = StraightRoadTile.LEN
+      dZ = 0
+    elif plotDirection == NORTH:
+      dX = 0
+      dZ = -StraightRoadTile.LEN
+    elif plotDirection == SOUTH:
+      dX = 0
+      dZ = StraightRoadTile.LEN
+
+    return RectangularShape(parentShape.getBoundingBox().transform(dX, dZ))
+
+  @staticmethod
+  def create (direction, x, z, shapeSet):
+    tile = StraightRoadTile(direction, x, z)
+    if not shapeSet.addIfNotIntersecting(tile.getShape()):
+      return None
+
+    if not tile._addMinimalPlotShapes(2, shapeSet):
+      shapeSet.remove(tile.getShape())
+      return None
+
+    return tile
+
   def place (self, world):
     world.placeStraightRoadTile(self.getShape(), self.getNextDirection())
+    for shapes, reldirection in itertools.izip((self._leftPlotShapes, self._rightPlotShapes), (LEFT, RIGHT)):
+      direction = RELDIRECTIONS_TO_DIRECTIONS[self.getNextDirection()][reldirection]
+      for shape in shapes:
+        if shape is not None:
+          world.placePlot(shape, direction)
 
 class BranchBaseRoadTile (RoadTile):
-  def __init__ (self, shape, nextDirection, nextX, nextZ, branchDirection, branchX, branchZ):
-    RoadTile.__init__(self, shape, nextDirection, nextX, nextZ)
-    self._branchDirection = branchDirection
+  def __init__ (self, branchReldirection, branchX, branchZ):
+    self._branchReldirection = branchReldirection
     self._branchX = branchX
     self._branchZ = branchZ
     self._branchRoadTiles = []
     # TODO self._branchGeneration?
 
+  def getBranchReldirection (self):
+    return self._branchReldirection
+
+  # TODO not self.getNextDirection()
   def getBranchDirection (self):
-    return self._branchDirection
+    return RELDIRECTIONS_TO_DIRECTIONS[self.getNextDirection()][self._branchReldirection]
 
   def getBranchX (self):
     return self._branchX
@@ -205,17 +314,14 @@ class BranchBaseRoadTile (RoadTile):
   def getBranchRoadTiles (self):
     return self._branchRoadTiles
 
-class TJunctionRoadTile (BranchBaseRoadTile):
-  def __init__ (self, direction, x, z, branchDirection, branchGeneration):
-    assert isinstance(x, int)
-    assert isinstance(z, int)
-    assert (direction in (WEST, EAST) and branchDirection in (NORTH, SOUTH)) or (direction in (NORTH, SOUTH) and branchDirection in (WEST, EAST))
+class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
+  def __init__ (self, direction, x, z, branchReldirection, branchGeneration):
+    assert branchReldirection in (LEFT, RIGHT)
+    StraightRoadTile.__init__(self, direction, x, z)
 
-    o = StraightRoadTile(direction, x, z)
-
-    shape = o.getShape()
-    assert isinstance(shape, RectangularShape)
-    box = shape
+    box = self.getShape()
+    assert isinstance(box, RectangularShape)
+    branchDirection = RELDIRECTIONS_TO_DIRECTIONS[direction][branchReldirection]
     if branchDirection == WEST:
       branchX = box.x0 - 1
       branchZ = box.z0 + StraightRoadTile.HLEN
@@ -228,12 +334,34 @@ class TJunctionRoadTile (BranchBaseRoadTile):
     elif branchDirection == SOUTH:
       branchX = box.x0 + StraightRoadTile.HLEN
       branchZ = box.z1
-    BranchBaseRoadTile.__init__(self, shape, o.getNextDirection(), o.getNextX(), o.getNextZ(), branchDirection, branchX, branchZ)
-    self._x = o._x
-    self._z = o._z
+
+    BranchBaseRoadTile.__init__(self, branchReldirection, branchX, branchZ)
+
+  @staticmethod
+  def create (direction, x, z, branchReldirection, branchGeneration, shapeSet):
+    tile = TJunctionRoadTile(direction, x, z, branchReldirection, branchGeneration)
+    if not shapeSet.addIfNotIntersecting(tile.getShape()):
+      return None
+
+    (tile._leftPlotShapes, tile._rightPlotShapes)[tile.getBranchReldirection()].append(None)
+    if not self._addMinimalPlotShapes(1, shapeSet):
+      shapeSet.remove(tile.getShape())
+      return None
+
+    return tile
+
+  def reminimalisePlotShapes (self):
+    StraightRoadTile.reminimalisePlotShapes()
+    assert len((self._leftPlotShapes, self._rightPlotShapes)[self.getBranchReldirection()]) == 0
+    (self._leftPlotShapes, self._rightPlotShapes)[self.getBranchReldirection()].append(None)
 
   def place (self, world):
     world.placeTJunctionRoadTile(self.getShape(), self.getNextDirection(), self.getBranchDirection())
+    for shapes, reldirection in itertools.izip((self._leftPlotShapes, self._rightPlotShapes), (LEFT, RIGHT)):
+      direction = RELDIRECTIONS_TO_DIRECTIONS[self.getNextDirection()][reldirection]
+      for shape in shapes:
+        if shape is not None:
+          world.placePlot(shape, direction)
     for tile in self.getBranchRoadTiles():
       tile.place(world)
 
@@ -255,7 +383,7 @@ class City (object):
     self._roads = ([], [])
     self._tileShapes = ShapeSet()
 
-    for roadTiles, direction, x, z in zip(self._roads, (WEST, EAST), (self._centreX - 1, self._centreX), (self._centreZ, self._centreZ)):
+    for roadTiles, direction, x, z in itertools.izip(self._roads, (WEST, EAST), (self._centreX - 1, self._centreX), (self._centreZ, self._centreZ)):
       self._buildMainRoad(roadTiles, direction, x, z)
 
   def _shapeInBoundary (self, shape):
@@ -381,6 +509,17 @@ class BitmapWorld (World):
       self._d.drawNS('|', (box.x0 + box.x1) / 2, (box.z0 + box.z1) / 2 + 1, l)
     else:
       assert False
+
+  def placePlot (self, box, direction):
+    self._d.drawBox('.', box)
+    if direction == WEST:
+      self._d.drawNS('|', box.x1 - 1, (box.z0 + box.z1) / 2 - 1, 3)
+    elif direction == EAST:
+      self._d.drawNS('|', box.x0, (box.z0 + box.z1) / 2 - 1, 3)
+    elif direction == NORTH:
+      self._d.drawWE('-', (box.x0 + box.x1) / 2 - 1, box.z1 - 1, 3)
+    elif direction == SOUTH:
+      self._d.drawWE('-', (box.x0 + box.x1) / 2 - 1, box.z0, 3)
 
   def placeMarker (self, x, z):
     self._d.drawWE('X', x, z, 1)
