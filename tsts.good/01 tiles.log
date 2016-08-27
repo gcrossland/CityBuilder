@@ -7,8 +7,8 @@
                                                                                                     
                        NNNNNNNNNNN           NNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE           
                        N    |    N           N    |    NE    |    EE         EE         E           
-                       N    |    N           N    |    NE    |    EE         EE         E           
-                       N    |    N           N    |    NE    |    EE         EE         E           
+                       N 11 |    N           N 03 |    NE 08 |    EE 09      EE 10      E           
+                       N 2  |    N           N 0  |    NE 1  |    EE 1       EE 1       E           
                        N    |    N           N    |    NE    |    EE         EE         E           
                        N    |    N           N    |----NE---------EE---------EE---------E           
                        N    |    N           N    |    NE         EE    |    EE         E           
@@ -18,8 +18,8 @@
                        NNNNNNNNNNN           NNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE           
  WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWNNNNNNNNNNN           SSSSSSSSSSS                      
  W         WW         WW    |    WW         WN    |    N           S    |    S                      
- W         WW         WW    |    WW         WN    |    N           S    |    S                      
- W         WW         WW    |    WW         WN    |    N           S    |    S                      
+ W 07      WW 06      WW 05 |    WW 04      WN 02 |    N           S 14 |    S                      
+ W 1       WW 1       WW 1  |    WW 1       WN 0  |    N           S 2  |    S                      
  W         WW         WW    |    WW         WN    |    N           S    |    S                      
  W---------WW---------WW---------WW---------WN----|    N           S    |    S                      
  W    |    WW         WW         WW         WN    |    N           S    |    S                      
@@ -29,8 +29,8 @@
  WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWNNNNNNNNNNN           SSSSSSSSSSS                      
  SSSSSSSSSSS                                 NNNNNNNNNNN           SSSSSSSSSSS                      
  S    |    S                                 N    |    N           S    |    S                      
- S    |    S                                 N    |    N           S    |    S                      
- S    |    S                                 N    |    N           S    |    S                      
+ S 12 |    S                                 N 01 |    N           S 15 |    S                      
+ S 2  |    S                                 N 0  |    N           S 2  |    S                      
  S    |    S                                 N    |    N           S    |    S                      
  S    |    S                                 N    |    N           S    |    S                      
  S    |    S                                 N    |    N           S    |    S                      
@@ -40,8 +40,8 @@
  SSSSSSSSSSS                                 NNNNNNNNNNN           SSSSSSSSSSS                      
  SSSSSSSSSSSEEEEEEEEEEE                      NNNNNNNNNNN           SSSSSSSSSSS                      
  S    |    SE         E                      N    |    N           S    |    S                      
- S    |    SE         E                      N    |    N           S    |    S                      
- S    |    SE         E                      N    |    N           S    |    S                      
+ S 13 |    SE 19      E                      N 00 |    N           S 16 |    S                      
+ S 2  |    SE 3       E                      N 0  |    N           S 2  |    S                      
  S    |    SE         E                      N    |    N           S    |    S                      
  S    |----SE---------E                      N    |    N           S    |    S                      
  S    |    SE         E                      N    |    N           S    |    S                      
@@ -51,8 +51,8 @@
  SSSSSSSSSSSEEEEEEEEEEE                      NNNNNXNNNNN           SSSSSSSSSSS                      
                                                                    SSSSSSSSSSS                      
                                                                    S    |    S                      
-                                                                   S    |    S                      
-                                                                   S    |    S                      
+                                                                   S 17 |    S                      
+                                                                   S 2  |    S                      
                                                                    S    |    S                      
                                                                    S    |    S                      
                                                                    S    |    S                      
@@ -62,8 +62,8 @@
                                                                    SSSSSSSSSSS                      
                                                                    SSSSSSSSSSS                      
                                                                    S    |    S                      
-                                                                   S    |    S                      
-                                                                   S    |    S                      
+                                                                   S 18 |    S                      
+                                                                   S 2  |    S                      
                                                                    S    |    S                      
                                                                    S----|    S                      
                                                                    S    |    S                      

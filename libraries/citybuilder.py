@@ -85,13 +85,30 @@ class RectangularShape (Shape):
     assert self.contains(subBox, self.getIntersection(subBox))
     return itertools.repeat(True, (subBox.x1 - subBox.x0) * (subBox.z1 - subBox.z0))
 
+EMPTY_O = object()
+
+def empty (i):
+  return next(i, EMPTY_O) is EMPTY_O
+
+def allTrue (i):
+  for v in i:
+    if not v:
+      return False
+  return True
+
+def allFalse (i):
+  for v in i:
+    if v:
+      return False
+  return True
+
 class ShapeSet (object):
   def __init__ (self, shapes = None):
     if shapes is None:
       shapes = set()
     else:
       assert isinstance(shapes, set)
-      assert len([None for s in shapes if not isinstance(s, Shape)]) == 0
+      assert allTrue(isinstance(s, Shape) for s in shapes)
       shapes = shapes.copy()
     self._shapes = shapes
 
@@ -124,7 +141,7 @@ class ShapeSet (object):
         yield shape
 
   def intersects (self, o):
-    return next(self.getIntersectors(o), None) is not None
+    return not empty(self.getIntersectors(o))
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
@@ -232,8 +249,26 @@ class RoadTile (Tile):
     self._reminimalisePlotShapes(self._leftPlotShapes)
     self._reminimalisePlotShapes(self._rightPlotShapes)
 
-  def getPlotShapes (self):
-    return [shape for shape in itertools.chain(self._leftPlotShapes, self._rightPlotShapes) if shape is not None]
+  def addShapesToSet (self, shapeSet):
+    assert self._shape not in shapeSet._shapes
+    shapeSet.add(self._shape)
+    for shapes in (self._leftPlotShapes, self._rightPlotShapes):
+      for s in shapes:
+        if s is not None:
+          assert s not in shapeSet._shapes
+          shapeSet.add(s)
+
+  def removeShapesFromSet (self, shapeSet):
+    assert self._shape in shapeSet._shapes
+    shapeSet.remove(self._shape)
+    for shapes in (self._leftPlotShapes, self._rightPlotShapes):
+      for s in shapes:
+        if s is not None:
+          assert s in shapeSet._shapes
+          shapeSet.remove(s)
+
+  def branchise (self, branchReldirection, shapeSet):
+    return None
 
 class StraightRoadTile (RoadTile):
   LEN = 11
@@ -292,14 +327,27 @@ class StraightRoadTile (RoadTile):
     return parentShape.getBoundingBox().transform(dX, dZ)
 
   @staticmethod
-  def create (direction, x, z, shapeSet):
+  def create (direction, x, z, shapeSet, needsMinimalPlotShapes = True):
     tile = StraightRoadTile(direction, x, z)
     if not shapeSet.addIfNotIntersecting(tile.getShape()):
       return None
 
-    if not tile._addMinimalPlotShapes(2, shapeSet):
+    if not tile._addMinimalPlotShapes((0, 2)[needsMinimalPlotShapes], shapeSet):
       shapeSet.remove(tile.getShape())
       return None
+
+    return tile
+
+  def branchise (self, branchReldirection, shapeSet):
+    self.removeShapesFromSet(shapeSet)
+
+    tile = TJunctionRoadTile.create(self.getDirection(), self.getX(), self.getZ(), branchReldirection, shapeSet)
+    if tile is None:
+      self.addShapesToSet(shapeSet)
+      return None
+    assert self.getNextDirection() == tile.getNextDirection()
+    assert self.getNextX() == tile.getNextX()
+    assert self.getNextZ() == tile.getNextZ()
 
     return tile
 
@@ -334,8 +382,18 @@ class BranchBaseRoadTile (RoadTile):
   def getBranchRoadTiles (self):
     return self._branchRoadTiles
 
+  def addShapesToSet (self, shapeSet):
+    RoadTile.addShapesToSet(self, shapeSet)
+    for tile in self._branchRoadTiles:
+      tile.addShapesToSet(shapeSet)
+
+  def removeShapesFromSet (self, shapeSet):
+    RoadTile.removeShapesFromSet(self, shapeSet)
+    for tile in self._branchRoadTiles:
+      tile.removeShapesFromSet(shapeSet)
+
 class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
-  def __init__ (self, direction, x, z, branchReldirection, branchGeneration):
+  def __init__ (self, direction, x, z, branchReldirection):
     assert branchReldirection in (LEFT, RIGHT)
     StraightRoadTile.__init__(self, direction, x, z)
 
@@ -358,13 +416,13 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
     BranchBaseRoadTile.__init__(self, branchReldirection, branchX, branchZ)
 
   @staticmethod
-  def create (direction, x, z, branchReldirection, branchGeneration, shapeSet):
-    tile = TJunctionRoadTile(direction, x, z, branchReldirection, branchGeneration)
+  def create (direction, x, z, branchReldirection, shapeSet):
+    tile = TJunctionRoadTile(direction, x, z, branchReldirection)
     if not shapeSet.addIfNotIntersecting(tile.getShape()):
       return None
 
     (tile._leftPlotShapes, tile._rightPlotShapes)[tile.getBranchReldirection()].append(None)
-    if not self._addMinimalPlotShapes(1, shapeSet):
+    if not tile._addMinimalPlotShapes(1, shapeSet):
       shapeSet.remove(tile.getShape())
       return None
 
@@ -374,6 +432,9 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
     StraightRoadTile.reminimalisePlotShapes()
     assert len((self._leftPlotShapes, self._rightPlotShapes)[self.getBranchReldirection()]) == 0
     (self._leftPlotShapes, self._rightPlotShapes)[self.getBranchReldirection()].append(None)
+
+  def branchise (self, branchReldirection, shapeSet):
+    return None
 
   def place (self, world):
     world.placeTJunctionRoadTile(self.getShape(), self.getDirection(), self.getBranchDirection())
@@ -433,6 +494,82 @@ class City (object):
       x = tile.getNextX()
       z = tile.getNextZ()
 
+  @staticmethod
+  def walkRoadTiles (rootTilesSet, rootGeneration, fn):
+    this = list(rootTilesSet)
+    next = []
+    generation = rootGeneration
+    while len(this) != 0:
+      for tiles in this:
+        fn(tiles, generation)
+        for tile in tiles:
+          if isinstance(tile, BranchBaseRoadTile):
+            next.append(tile.getBranchRoadTiles())
+      t = this
+      this = next
+      next = t
+      del next[:]
+      generation += 1
+
+  def performGrowthIteration (self, rng):
+    tileShapeSet = self._createTileShapeSet()
+
+    def reminimalisePlotShapes (tiles):
+      for tile in tiles:
+        tile.reminimalisePlotShapes()
+        if isinstance(tile, BranchBaseRoadTile):
+          reminimalisePlotShapes(tile.getBranchRoadTiles())
+    for tiles in self._roads:
+      reminimalisePlotShapes(tiles)
+    for tiles in self._roads:
+      for tile in tiles:
+        tile.addShapesToSet(tileShapeSet)
+
+    def addBranches (tiles, generation):
+      reldirectionBranchTiles = (
+        [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == LEFT for t in tiles],
+        [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == RIGHT for t in tiles]
+      )
+      for i in xrange(2, len(tiles) - 2):
+        tile = tiles[i]
+        if not isinstance(tile, BranchBaseRoadTile) and rng.randrange(0, 10) == 0:
+          reldirection = rng.choice((LEFT, RIGHT))
+          if allFalse(itertools.islice(reldirectionBranchTiles[reldirection], i - 2, i + 3)):
+            tile0 = tile.branchise(reldirection, tileShapeSet)
+            if tile0 is not None:
+              tile1 = StraightRoadTile.create(tile0.getBranchDirection(), tile0.getBranchX(), tile0.getBranchZ(), tileShapeSet, False)
+              if tile1 is not None:
+                tile0.getBranchRoadTiles().append(tile1)
+                tiles[i] = tile0
+                reldirectionBranchTiles[reldirection][i] = True
+              else:
+                tile0.removeShapesFromSet(tileShapeSet)
+                tile.addShapesToSet(tileShapeSet)
+    City.walkRoadTiles(self._roads, 0, addBranches)
+
+    def extendRoad (tiles, generation):
+      for i in xrange(0, rng.randrange(0, 5 + 1)):
+        direction = tiles[-1].getNextDirection()
+        x = tiles[-1].getNextX()
+        z = tiles[-1].getNextZ()
+        tile = StraightRoadTile.create(direction, x, z, tileShapeSet)
+        if tile is None:
+          break
+        tiles.append(tile)
+    City.walkRoadTiles(self._roads, 0, extendRoad)
+
+    r_plotsAdded = [False]
+    def markPlots (tiles, generation):
+      for tile in tiles:
+        added = tile.addNextPlotShapes(tileShapeSet)
+        if added:
+          r_plotsAdded[0] = True
+    while True:
+      r_plotsAdded[0] = False
+      City.walkRoadTiles(self._roads, 0, markPlots)
+      if not r_plotsAdded[0]:
+        break
+
   def place (self, world):
     for roadTiles in self._roads:
       for roadTile in roadTiles:
@@ -457,6 +594,9 @@ class Display (object):
     assert z >= viewport.z0
     assert z < viewport.z1
     return (z - viewport.z0) * self._viewportWidth + (x - viewport.x0)
+
+  def drawPel (self, c, x0, z0):
+    self._vBuffer[self._getI(x0, z0)] = ord(c)
 
   def drawWE (self, c, x0, z0, l):
     assert isinstance(l, int)
@@ -550,3 +690,13 @@ class BitmapWorld (World):
 
   def get (self):
     return self._d.get()
+
+class ConstantRng (object):
+  def __init__ (self, v):
+    self._v = v
+
+  def randrange (self, start, stop):
+    return self._v % (stop - start) + start
+
+  def choice (self, seq):
+    return seq[self.randrange(0, len(seq))]
