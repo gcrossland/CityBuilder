@@ -6,70 +6,70 @@
                                                                                                     
                                                                                                     
                        NNNNNNNNNNN           NNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE           
-                       NnnnnnnnnnN           NnnnnnnnnnNEeeeeeeeeeEEeeeeeeeeeEEeeeeeeeeeE           
-                       Nn   |   nN           Nn   |   nNEe   |   eEEe       eEEe       eE           
-                       Nn   |   nN           Nn   |   nNEe   |   eEEe       eEEe       eE           
-                       Nn   |   nN           Nn   |   nNEe   |   eEEe       eEEe       eE           
-                       Nn   |   nN           Nn   |---nNEe-------eEEe-------eEEe-------eE           
-                       Nn   |   nN           Nn   |   nNEe       eEEe   |   eEEe       eE           
-                       Nn   |   nN           Nn   |   nNEe       eEEe   |   eEEe       eE           
-                       Nn   |   nN           Nn   |   nNEe       eEEe   |   eEEe       eE           
-                       NnnnnnnnnnN           NnnnnnnnnnNEeeeeeeeeeEEeeeeeeeeeEEeeeeeeeeeE           
+                       N    |    N           N    |    NE    |    EE         EE         E           
+                       N    |    N           N    |    NE    |    EE         EE         E           
+                       N    |    N           N    |    NE    |    EE         EE         E           
+                       N    |    N           N    |    NE    |    EE         EE         E           
+                       N    |    N           N    |----NE---------EE---------EE---------E           
+                       N    |    N           N    |    NE         EE    |    EE         E           
+                       N    |    N           N    |    NE         EE    |    EE         E           
+                       N    |    N           N    |    NE         EE    |    EE         E           
+                       N    |    N           N    |    NE         EE    |    EE         E           
                        NNNNNNNNNNN           NNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE           
  WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWNNNNNNNNNNN           SSSSSSSSSSS                      
- WwwwwwwwwwWWwwwwwwwwwWWwwwwwwwwwWWwwwwwwwwwWNnnnnnnnnnN           SsssssssssS                      
- Ww       wWWw       wWWw   |   wWWw       wWNn   |   nN           Ss   |   sS                      
- Ww       wWWw       wWWw   |   wWWw       wWNn   |   nN           Ss   |   sS                      
- Ww       wWWw       wWWw   |   wWWw       wWNn   |   nN           Ss   |   sS                      
- Ww-------wWWw-------wWWw-------wWWw-------wWNn---|   nN           Ss   |   sS                      
- Ww   |   wWWw       wWWw       wWWw       wWNn   |   nN           Ss   |   sS                      
- Ww   |   wWWw       wWWw       wWWw       wWNn   |   nN           Ss   |   sS                      
- Ww   |   wWWw       wWWw       wWWw       wWNn   |   nN           Ss   |   sS                      
- WwwwwwwwwwWWwwwwwwwwwWWwwwwwwwwwWWwwwwwwwwwWNnnnnnnnnnN           SsssssssssS                      
+ W         WW         WW    |    WW         WN    |    N           S    |    S                      
+ W         WW         WW    |    WW         WN    |    N           S    |    S                      
+ W         WW         WW    |    WW         WN    |    N           S    |    S                      
+ W         WW         WW    |    WW         WN    |    N           S    |    S                      
+ W---------WW---------WW---------WW---------WN----|    N           S    |    S                      
+ W    |    WW         WW         WW         WN    |    N           S    |    S                      
+ W    |    WW         WW         WW         WN    |    N           S    |    S                      
+ W    |    WW         WW         WW         WN    |    N           S    |    S                      
+ W    |    WW         WW         WW         WN    |    N           S    |    S                      
  WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWNNNNNNNNNNN           SSSSSSSSSSS                      
  SSSSSSSSSSS                                 NNNNNNNNNNN           SSSSSSSSSSS                      
- SsssssssssS                                 NnnnnnnnnnN           SsssssssssS                      
- Ss   |   sS                                 Nn   |   nN           Ss   |   sS                      
- Ss   |   sS                                 Nn   |   nN           Ss   |   sS                      
- Ss   |   sS                                 Nn   |   nN           Ss   |   sS                      
- Ss   |   sS                                 Nn   |   nN           Ss   |   sS                      
- Ss   |   sS                                 Nn   |   nN           Ss   |   sS                      
- Ss   |   sS                                 Nn   |   nN           Ss   |   sS                      
- Ss   |   sS                                 Nn   |   nN           Ss   |   sS                      
- SsssssssssS                                 NnnnnnnnnnN           SsssssssssS                      
+ S    |    S                                 N    |    N           S    |    S                      
+ S    |    S                                 N    |    N           S    |    S                      
+ S    |    S                                 N    |    N           S    |    S                      
+ S    |    S                                 N    |    N           S    |    S                      
+ S    |    S                                 N    |    N           S    |    S                      
+ S    |    S                                 N    |    N           S    |    S                      
+ S    |    S                                 N    |    N           S    |    S                      
+ S    |    S                                 N    |    N           S    |    S                      
+ S    |    S                                 N    |    N           S    |    S                      
  SSSSSSSSSSS                                 NNNNNNNNNNN           SSSSSSSSSSS                      
  SSSSSSSSSSSEEEEEEEEEEE                      NNNNNNNNNNN           SSSSSSSSSSS                      
- SsssssssssSEeeeeeeeeeE                      NnnnnnnnnnN           SsssssssssS                      
- Ss   |   sSEe       eE                      Nn   |   nN           Ss   |   sS                      
- Ss   |   sSEe       eE                      Nn   |   nN           Ss   |   sS                      
- Ss   |   sSEe       eE                      Nn   |   nN           Ss   |   sS                      
- Ss   |---sSEe-------eE                      Nn   |   nN           Ss   |   sS                      
- Ss   |   sSEe       eE                      Nn   |   nN           Ss   |   sS                      
- Ss   |   sSEe       eE                      Nn   |   nN           Ss   |   sS                      
- Ss   |   sSEe       eE                      Nn   |   nN           Ss   |   sS                      
- SsssssssssSEeeeeeeeeeE                      NnnnnnnnnnN           SsssssssssS                      
+ S    |    SE         E                      N    |    N           S    |    S                      
+ S    |    SE         E                      N    |    N           S    |    S                      
+ S    |    SE         E                      N    |    N           S    |    S                      
+ S    |    SE         E                      N    |    N           S    |    S                      
+ S    |----SE---------E                      N    |    N           S    |    S                      
+ S    |    SE         E                      N    |    N           S    |    S                      
+ S    |    SE         E                      N    |    N           S    |    S                      
+ S    |    SE         E                      N    |    N           S    |    S                      
+ S    |    SE         E                      N    |    N           S    |    S                      
  SSSSSSSSSSSEEEEEEEEEEE                      NNNNNXNNNNN           SSSSSSSSSSS                      
                                                                    SSSSSSSSSSS                      
-                                                                   SsssssssssS                      
-                                                                   Ss   |   sS                      
-                                                                   Ss   |   sS                      
-                                                                   Ss   |   sS                      
-                                                                   Ss   |   sS                      
-                                                                   Ss   |   sS                      
-                                                                   Ss   |   sS                      
-                                                                   Ss   |   sS                      
-                                                                   SsssssssssS                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
                                                                    SSSSSSSSSSS                      
                                                                    SSSSSSSSSSS                      
-                                                                   SsssssssssS                      
-                                                                   Ss   |   sS                      
-                                                                   Ss   |   sS                      
-                                                                   Ss   |   sS                      
-                                                                   Ss---|   sS                      
-                                                                   Ss   |   sS                      
-                                                                   Ss   |   sS                      
-                                                                   Ss   |   sS                      
-                                                                   SsssssssssS                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
+                                                                   S----|    S                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
+                                                                   S    |    S                      
                                                                    SSSSSSSSSSS                      
                                                                                                     
                                                                                                     

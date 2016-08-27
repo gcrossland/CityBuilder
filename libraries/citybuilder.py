@@ -502,19 +502,17 @@ class BitmapWorld (World):
   def __init__ (self, boundingBox):
     self._d = Display(boundingBox)
 
-  DIRECTION_STRONGS = {WEST: 'W', EAST: 'E', NORTH: 'N', SOUTH: 'S'}
-  DIRECTION_WEAKS = {WEST: 'w', EAST: 'e', NORTH: 'n', SOUTH: 's'}
+  DIRECTION_CS = {WEST: 'W', EAST: 'E', NORTH: 'N', SOUTH: 'S'}
 
   def placeStraightRoadTile (self, shape, direction):
     assert isinstance(shape, RectangularShape) # TODO for now
     box = shape
 
-    self._d.drawBox(BitmapWorld.DIRECTION_STRONGS[direction], box)
-    self._d.drawBox(BitmapWorld.DIRECTION_WEAKS[direction], RectangularShape(box.x0 + 1, box.z0 + 1, box.x1 - 1, box.z1 - 1))
+    self._d.drawBox(BitmapWorld.DIRECTION_CS[direction], box)
     if direction in (WEST, EAST):
-      self._d.drawWE('-', box.x0 + 2, (box.z0 + box.z1) / 2, box.x1 - box.x0 - 4)
+      self._d.drawWE('-', box.x0 + 1, (box.z0 + box.z1) / 2, box.x1 - box.x0 - 2)
     elif direction in (NORTH, SOUTH):
-      self._d.drawNS('|', (box.x0 + box.x1) / 2, box.z0 + 2, box.z1 - box.z0 - 4)
+      self._d.drawNS('|', (box.x0 + box.x1) / 2, box.z0 + 1, box.z1 - box.z0 - 2)
     else:
       assert False
 
@@ -523,14 +521,14 @@ class BitmapWorld (World):
 
     self.placeStraightRoadTile(shape, direction)
 
-    l = (box.x1 - box.x0 - 4) / 2
-    assert l == (box.z1 - box.z0 - 4) / 2
+    l = (box.x1 - box.x0 - 2) / 2
+    assert l == (box.z1 - box.z0 - 2) / 2
     if branchDirection == WEST:
-      self._d.drawWE('-', box.x0 + 2, (box.z0 + box.z1) / 2, l)
+      self._d.drawWE('-', box.x0 + 1, (box.z0 + box.z1) / 2, l)
     elif branchDirection == EAST:
       self._d.drawWE('-', (box.x0 + box.x1) / 2 + 1, (box.z0 + box.z1) / 2, l)
     elif branchDirection == NORTH:
-      self._d.drawNS('|', (box.x0 + box.x1) / 2, box.z0 + 2, l)
+      self._d.drawNS('|', (box.x0 + box.x1) / 2, box.z0 + 1, l)
     elif branchDirection == SOUTH:
       self._d.drawNS('|', (box.x0 + box.x1) / 2, (box.z0 + box.z1) / 2 + 1, l)
     else:
