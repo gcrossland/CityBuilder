@@ -642,17 +642,35 @@ class BitmapWorld (World):
   def __init__ (self, boundingBox):
     self._d = Display(boundingBox)
 
-  DIRECTION_CS = {WEST: 'W', EAST: 'E', NORTH: 'N', SOUTH: 'S'}
-
   def placeStraightRoadTile (self, shape, direction):
     assert isinstance(shape, RectangularShape) # TODO for now
     box = shape
 
-    self._d.drawBox(BitmapWorld.DIRECTION_CS[direction], box)
+    self._d.drawBox('#', box)
     if direction in (WEST, EAST):
-      self._d.drawWE('-', box.x0 + 1, (box.z0 + box.z1) / 2, box.x1 - box.x0 - 2)
+      z = (box.z0 + box.z1) / 2
+      self._d.drawWE('-', box.x0 + 1, z, box.x1 - box.x0 - 2)
+      if direction == WEST:
+        x0 = box.x0 + 1
+        x1 = x0 + 1
+      else:
+        x0 = box.x1 - 2
+        x1 = x0 - 1
+      self._d.drawPel('*', x0, z)
+      self._d.drawPel('*', x1, z - 1)
+      self._d.drawPel('*', x1, z + 1)
     elif direction in (NORTH, SOUTH):
-      self._d.drawNS('|', (box.x0 + box.x1) / 2, box.z0 + 1, box.z1 - box.z0 - 2)
+      x = (box.x0 + box.x1) / 2
+      self._d.drawNS('|', x, box.z0 + 1, box.z1 - box.z0 - 2)
+      if direction == NORTH:
+        z0 = box.z0 + 1
+        z1 = z0 + 1
+      else:
+        z0 = box.z1 - 2
+        z1 = z0 - 1
+      self._d.drawPel('*', x, z0)
+      self._d.drawPel('*', x - 1, z1)
+      self._d.drawPel('*', x + 1, z1)
     else:
       assert False
 
@@ -677,13 +695,13 @@ class BitmapWorld (World):
   def placePlot (self, box, direction):
     self._d.drawBox('.', box)
     if direction == WEST:
-      self._d.drawNS('|', box.x1 - 1, (box.z0 + box.z1) / 2 - 1, 3)
+      self._d.drawNS('o', box.x1 - 1, (box.z0 + box.z1) / 2 - 1, 3)
     elif direction == EAST:
-      self._d.drawNS('|', box.x0, (box.z0 + box.z1) / 2 - 1, 3)
+      self._d.drawNS('o', box.x0, (box.z0 + box.z1) / 2 - 1, 3)
     elif direction == NORTH:
-      self._d.drawWE('-', (box.x0 + box.x1) / 2 - 1, box.z1 - 1, 3)
+      self._d.drawWE('o', (box.x0 + box.x1) / 2 - 1, box.z1 - 1, 3)
     elif direction == SOUTH:
-      self._d.drawWE('-', (box.x0 + box.x1) / 2 - 1, box.z0, 3)
+      self._d.drawWE('o', (box.x0 + box.x1) / 2 - 1, box.z0, 3)
 
   def placeMarker (self, x, z):
     self._d.drawWE('X', x, z, 1)
@@ -692,16 +710,15 @@ class BitmapWorld (World):
     d = self._d
     return ""\
       "! XPM2\n"\
-      "" + "{} {} 9 1\n".format(d.viewport.x1 - d.viewport.x0, d.viewport.z1 - d.viewport.z0) + ""\
+      "" + "{} {} 8 1\n".format(d.viewport.x1 - d.viewport.x0, d.viewport.z1 - d.viewport.z0) + ""\
       "  c #FFFFFF\n"\
-      "W c #FF0000\n"\
-      "E c #FF00FF\n"\
-      "N c #FFFF00\n"\
-      "S c #FFFFFF\n"\
-      "| c #0000FF\n"\
-      "- c #0000FF\n"\
+      "# c #000000\n"\
+      "- c #7F7FFF\n"\
+      "| c #7F7FFF\n"\
+      "* c #0000FF\n"\
       ". c #7F7F7F\n"\
-      "X c #000000\n"\
+      "o c #BFBFBF\n"\
+      "X c #FF0000\n"\
       "" + "\n".join(d.get())
 
 class ConstantRng (object):
