@@ -12,4 +12,4 @@ def T ():
   c.place(world)
   for shape in boundaryExclusions._shapes:
     world._d.drawBox('X', shape)
-  t("{}", "\n".join(world.get()))
+  t("{}", world.getXpm())

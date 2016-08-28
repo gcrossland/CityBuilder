@@ -57,4 +57,4 @@ def T ():
       world._d.drawPel(str(generation), x, z + 1)
       r_c[0] += 1
   City.walkRoadTiles((t0,), 0, f)
-  t("{}", "\n".join(world.get()))
+  t("{}", world.getXpm())

@@ -581,14 +581,14 @@ class City (object):
 class Display (object):
   def __init__ (self, viewport):
     assert isinstance(viewport, RectangularShape)
-    self._viewport = viewport
+    self.viewport = viewport
     self._viewportWidth = viewport.x1 - viewport.x0
     self._vBuffer = array.array('B', itertools.repeat(ord(' '), (viewport.z1 - viewport.z0) * self._viewportWidth))
 
   def _getI (self, x, z):
     assert isinstance(x, int)
     assert isinstance(z, int)
-    viewport = self._viewport
+    viewport = self.viewport
     assert x >= viewport.x0
     assert x < viewport.x1
     assert z >= viewport.z0
@@ -601,7 +601,7 @@ class Display (object):
   def drawWE (self, c, x0, z0, l):
     assert isinstance(l, int)
     assert l >= 0
-    assert x0 + l <= self._viewport.x1
+    assert x0 + l <= self.viewport.x1
     i = self._getI(x0, z0)
     pel = ord(c)
     vBuffer = self._vBuffer
@@ -612,7 +612,7 @@ class Display (object):
   def drawNS (self, c, x0, z0, l):
     assert isinstance(l, int)
     assert l >= 0
-    assert z0 + l <= self._viewport.z1
+    assert z0 + l <= self.viewport.z1
     i = self._getI(x0, z0)
     pel = ord(c)
     vBuffer = self._vBuffer
@@ -633,7 +633,7 @@ class Display (object):
       self.drawNS(c, box.x1 - 1, z, dZ)
 
   def get (self):
-    viewport = self._viewport
+    viewport = self.viewport
     viewportWidth = self._viewportWidth
     vBuffer = self._vBuffer
     return [vBuffer[i:i + viewportWidth].tostring() for i in xrange(0, (viewport.z1 - viewport.z0) * viewportWidth, viewportWidth)]
@@ -688,8 +688,21 @@ class BitmapWorld (World):
   def placeMarker (self, x, z):
     self._d.drawWE('X', x, z, 1)
 
-  def get (self):
-    return self._d.get()
+  def getXpm (self):
+    d = self._d
+    return ""\
+      "! XPM2\n"\
+      "" + "{} {} 9 1\n".format(d.viewport.x1 - d.viewport.x0, d.viewport.z1 - d.viewport.z0) + ""\
+      "  c #FFFFFF\n"\
+      "W c #FF0000\n"\
+      "E c #FF00FF\n"\
+      "N c #FFFF00\n"\
+      "S c #FFFFFF\n"\
+      "| c #0000FF\n"\
+      "- c #0000FF\n"\
+      ". c #7F7F7F\n"\
+      "X c #000000\n"\
+      "" + "\n".join(d.get())
 
 class ConstantRng (object):
   def __init__ (self, v):
