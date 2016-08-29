@@ -429,7 +429,7 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
     return tile
 
   def reminimalisePlotShapes (self):
-    StraightRoadTile.reminimalisePlotShapes()
+    StraightRoadTile.reminimalisePlotShapes(self)
     assert len((self._leftPlotShapes, self._rightPlotShapes)[self.getBranchReldirection()]) == 0
     (self._leftPlotShapes, self._rightPlotShapes)[self.getBranchReldirection()].append(None)
 
@@ -511,7 +511,7 @@ class City (object):
       del next[:]
       generation += 1
 
-  def performGrowthIteration (self, rng):
+  def performGrowthIteration (self, rng, maxPlotDepth = 0x3FFFFFFF):
     tileShapeSet = self._createTileShapeSet()
 
     def reminimalisePlotShapes (tiles):
@@ -564,7 +564,7 @@ class City (object):
         added = tile.addNextPlotShapes(tileShapeSet)
         if added:
           r_plotsAdded[0] = True
-    while True:
+    for _ in xrange(1, maxPlotDepth):
       r_plotsAdded[0] = False
       City.walkRoadTiles(self._roads, 0, markPlots)
       if not r_plotsAdded[0]:
@@ -721,12 +721,28 @@ class BitmapWorld (World):
       "X c #FF0000\n"\
       "" + "\n".join(d.get())
 
-class ConstantRng (object):
+class Rng (object):
+  def _r (self):
+    raise NotImplementedError
+
+  def randrange (self, start, stop):
+    return self._r() % (stop - start) + start
+
+  def choice (self, seq):
+    return seq[self._r() % len(seq)]
+
+class ConstantRng (Rng):
   def __init__ (self, v):
     self._v = v
 
-  def randrange (self, start, stop):
-    return self._v % (stop - start) + start
+  def _r (self):
+    return self._v
 
-  def choice (self, seq):
-    return seq[self.randrange(0, len(seq))]
+class LinearRng (Rng):
+  def __init__ (self):
+    self._v = 0
+
+  def _r (self):
+    v = self._v
+    self._v += 1
+    return v
