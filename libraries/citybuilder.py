@@ -103,17 +103,8 @@ def allFalse (i):
   return True
 
 class ShapeSet (object):
-  def __init__ (self, shapes = None):
-    if shapes is None:
-      shapes = set()
-    else:
-      assert isinstance(shapes, set)
-      assert allTrue(isinstance(s, Shape) for s in shapes)
-      shapes = shapes.copy()
-    self._shapes = shapes
-
-  def clone (self):
-    return ShapeSet(self._shapes)
+  def __init__ (self):
+    self._shapes = set()
 
   def add (self, o):
     assert isinstance(o, Shape)
@@ -129,6 +120,15 @@ class ShapeSet (object):
 
   def remove (self, o):
     self._shapes.remove(o)
+
+  def clear (self):
+    self._shapes.clear()
+
+  def __iter__ (self):
+    return iter(self._shapes)
+
+  def __contains__ (self, o):
+    raise TypeError
 
   # TODO do we need to be able to go from Shapes to their parent Tiles?
   # -> well, we can always monkey on a parent field if we do want to...
@@ -462,10 +462,11 @@ class City (object):
     self._boundary = boundary
     self._boundaryExclusions = boundaryExclusions
     self._roads = ([], [])
+    self._tileShapeSet = ShapeSet()
 
-    tileShapeSet = self._createTileShapeSet()
+    self._reinitTileShapeSet()
     for roadTiles, direction, x, z in itertools.izip(self._roads, (WEST, EAST), (self._centreX - 1, self._centreX), (self._centreZ, self._centreZ)):
-      self._buildMainRoad(roadTiles, direction, x, z, tileShapeSet)
+      self._buildMainRoad(roadTiles, direction, x, z)
 
   @staticmethod
   def invertRectangularShape (s, max = 0x3FFFFFFF):
@@ -477,15 +478,15 @@ class City (object):
       RectangularShape(s.x0, s.z1, s.x1, max)
     )
 
-  def _createTileShapeSet (self):
-    shapeSet = self._boundaryExclusions.clone()
-    for shape in City.invertRectangularShape(self._boundary):
-      shapeSet.add(shape)
-    return shapeSet
+  def _reinitTileShapeSet (self):
+    tileShapeSet = self._tileShapeSet
+    tileShapeSet.clear()
+    for shape in itertools.chain(City.invertRectangularShape(self._boundary), self._boundaryExclusions):
+      tileShapeSet.add(shape)
 
-  def _buildMainRoad (self, roadTiles, direction, x, z, tileShapeSet):
+  def _buildMainRoad (self, roadTiles, direction, x, z):
     while True:
-      tile = StraightRoadTile.create(direction, x, z, tileShapeSet)
+      tile = StraightRoadTile.create(direction, x, z, self._tileShapeSet)
       if tile is None:
         break
       roadTiles.append(tile)
@@ -511,9 +512,7 @@ class City (object):
       del next[:]
       generation += 1
 
-  def performGrowthIteration (self, rng, maxPlotDepth = 0x3FFFFFFF):
-    tileShapeSet = self._createTileShapeSet()
-
+  def performGrowthIteration (self, rng):
     def reminimalisePlotShapes (tiles):
       for tile in tiles:
         tile.reminimalisePlotShapes()
@@ -521,6 +520,8 @@ class City (object):
           reminimalisePlotShapes(tile.getBranchRoadTiles())
     for tiles in self._roads:
       reminimalisePlotShapes(tiles)
+    self._reinitTileShapeSet()
+    tileShapeSet = self._tileShapeSet
     for tiles in self._roads:
       for tile in tiles:
         tile.addShapesToSet(tileShapeSet)
@@ -558,13 +559,14 @@ class City (object):
         tiles.append(tile)
     City.walkRoadTiles(self._roads, 0, extendRoad)
 
+  def extendPlotage (self, rng, maxDepth = 0x3FFFFFFF):
     r_plotsAdded = [False]
     def markPlots (tiles, generation):
       for tile in tiles:
-        added = tile.addNextPlotShapes(tileShapeSet)
+        added = tile.addNextPlotShapes(self._tileShapeSet)
         if added:
           r_plotsAdded[0] = True
-    for _ in xrange(1, maxPlotDepth):
+    for _ in xrange(1, maxDepth):
       r_plotsAdded[0] = False
       City.walkRoadTiles(self._roads, 0, markPlots)
       if not r_plotsAdded[0]:

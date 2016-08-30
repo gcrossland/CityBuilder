@@ -1,3 +1,4 @@
 r = LinearRng()
-c.performGrowthIteration(r, 8)
-c.performGrowthIteration(r, 8)
+c.performGrowthIteration(r)
+c.performGrowthIteration(r)
+c.extendPlotage(r, 8)

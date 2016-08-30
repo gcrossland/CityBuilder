@@ -12,6 +12,6 @@ def T (pathName):
 
   world = BitmapWorld(c._boundary.getBoundingBox())
   c.place(world)
-  for shape in boundaryExclusions._shapes:
+  for shape in boundaryExclusions:
     world._d.drawBox('X', shape)
   t("{}", world.getXpm())
