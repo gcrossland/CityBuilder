@@ -3,7 +3,6 @@
 #  City Building Library
 #  © Geoff Crossland 2016
 # ------------------------------------------------------------------------------
-import sys
 import itertools
 import array
 
@@ -15,22 +14,47 @@ def empty (i):
   return next(i, EMPTY_O) is EMPTY_O
 
 class Shape (object):
+  def getTranslation (self, dX, dZ):
+    raise NotImplementedError
+
   def getBoundingBox (self):
     raise NotImplementedError
 
-  def getMembershipGenerator (self, subBox):
-    assert isinstance(subBox, RectangularShape)
+  def _getRows (self, subBox):
     raise NotImplementedError
 
-  def intersects (self, o, boundingBoxIntersection):
-    assert isinstance(o, Shape)
-    assert RectangularShape.eqs(boundingBoxIntersection, self.getBoundingBox().getIntersection(o.getBoundingBox()))
+  def _any (self, subBox):
+    raise NotImplementedError
 
+  def intersects (self, o):
+    assert isinstance(o, Shape)
+    boundingBoxIntersection = self.getBoundingBox().getIntersection(o.getBoundingBox())
     if boundingBoxIntersection is None:
       return False
-    if isinstance(self, RectangularShape) and isinstance(o, RectangularShape):
+
+    selfRectangular = isinstance(self, RectangularShape)
+    oRectangular = isinstance(o, RectangularShape)
+
+    if selfRectangular and oRectangular:
       return True
-    assert False # TODO
+
+    if selfRectangular or oRectangular:
+      if selfRectangular:
+        o1 = o
+      else:
+        o1 = self
+      r = o1._any(boundingBoxIntersection)
+      assert r == any(row != 0 for row in o1._getRows(boundingBoxIntersection))
+      return r
+
+    selfRows = self._getRows(boundingBoxIntersection)
+    oRows = o._getRows(boundingBoxIntersection)
+    for selfRow, oRow in itertools.izip(selfRows, oRows):
+      if (selfRow & oRow) != 0:
+        return True
+    assert empty(selfRows)
+    assert empty(oRows)
+    return False
 
 class RectangularShape (Shape):
   def __init__ (self, x0, z0, x1, z1):
@@ -69,38 +93,113 @@ class RectangularShape (Shape):
       return None
     return RectangularShape(x0, z0, x1, z1)
 
-  def contains (self, o, boundingBoxIntersection):
-    assert isinstance(o, Shape)
-    assert RectangularShape.eqs(boundingBoxIntersection, self.getBoundingBox().getIntersection(o.getBoundingBox()))
+  def contains (self, o):
+    assert isinstance(o, RectangularShape)
+    subBox = self.getIntersection(o)
+    return subBox is not None and subBox.eq(o)
 
-    if boundingBoxIntersection is None:
-      return False
-    if isinstance(self, RectangularShape) and isinstance(o, RectangularShape):
-      return boundingBoxIntersection.eq(o)
-    assert False # TODO
-
-  def transform (self, dX, dZ):
+  def getTranslation (self, dX, dZ):
     return RectangularShape(self.x0 + dX, self.z0 + dZ, self.x1 + dX, self.z1 + dZ)
 
   def getBoundingBox (self):
     return self
 
-  def getMembershipGenerator (self, subBox):
+  def _getRows (self, subBox):
     assert isinstance(subBox, RectangularShape)
-    assert self.contains(subBox, self.getIntersection(subBox))
-    return itertools.repeat(True, (subBox.x1 - subBox.x0) * (subBox.z1 - subBox.z0))
+    assert self.contains(subBox)
+    return itertools.repeat((1 << (subBox.x1 - subBox.x0)) - 1, (subBox.z1 - subBox.z0))
 
-def allTrue (i):
-  for v in i:
-    if not v:
-      return False
-  return True
+  def _any (self, subBox):
+    assert isinstance(subBox, RectangularShape)
+    assert self.contains(subBox)
+    return True
 
-def allFalse (i):
-  for v in i:
-    if v:
-      return False
-  return True
+class ArbitraryShape (Shape):
+  class Template (object):
+    @staticmethod
+    def rows (*strRows):
+      rows = []
+      for strRow in strRows:
+        row = 0
+        for c in reversed(strRow):
+          row <<= 1
+          if c != ' ':
+            row |= 0b1
+        rows.append(row)
+      return rows
+
+    def __init__ (self, rowsI, dX = None):
+      rows = tuple(rowsI)
+      assert len(rows) != 0
+      if dX is None:
+        dX = max(row.bit_length() for row in rows)
+      else:
+        assert dX >= max(row.bit_length() for row in rows)
+      assert dX != 0
+
+      self._rows = rows
+      self._dX = dX
+
+    def _getDX (self):
+      return self._dX
+
+    def _getDZ (self):
+      return len(self._rows)
+
+    def _get (self, x, z):
+      return (self._rows[z] >> x) & 0b1
+
+    def getClockwiseQuarterRotation (self):
+      dX = self._getDZ()
+      dZ = self._getDX()
+
+      rows = []
+      for z in xrange(0, dZ):
+        row = 0
+        for x in xrange(dX - 1, -1, -1):
+          row = (row << 1) | self._get(z, dX - 1 - x)
+        rows.append(row)
+
+      return ArbitraryShape.Template(rows, dX)
+
+  def __init__ (self, t, x0, z0):
+    assert isinstance(t, ArbitraryShape.Template)
+    self._t = t
+    self._x0 = x0
+    self._z0 = z0
+    self._boundingBox = RectangularShape(x0, z0, x0 + t._getDX(), z0 + t._getDZ())
+
+  def getTranslation (self, dX, dZ):
+    return ArbitraryShape(self._t, self._x0 + dX, self._z0 + dZ)
+
+  def getBoundingBox (self):
+    return self._boundingBox
+
+  def _getRows (self, subBox):
+    assert isinstance(subBox, RectangularShape)
+    assert self.getBoundingBox().contains(subBox)
+    box = self._boundingBox
+    x0 = box.x0
+    z0 = box.z0
+    x0R = subBox.x0 - x0
+    x1RMask = (1 << (subBox.x1 - x0)) - 1
+    rows = self._t._rows
+    for z in xrange(subBox.z0 - z0, subBox.z1 - z0):
+      yield (rows[z] & x1RMask) >> x0R
+
+  def _any (self, subBox):
+    assert isinstance(subBox, RectangularShape)
+    assert self.getBoundingBox().contains(subBox)
+    box = self._boundingBox
+    x0 = box.x0
+    z0 = box.z0
+    xRMask = (1 << (subBox.x1 - x0)) - 1
+    xRMask &= ~((1 << (subBox.x0 - x0)) - 1)
+    rows = self._t._rows
+    for z in xrange(subBox.z0 - z0, subBox.z1 - z0):
+      if (rows[z] & xRMask) != 0:
+        return True
+    return False
 
 class ShapeSet (object):
   def __init__ (self):
@@ -130,14 +229,9 @@ class ShapeSet (object):
   def __contains__ (self, o):
     raise TypeError
 
-  # TODO do we need to be able to go from Shapes to their parent Tiles?
-  # -> well, we can always monkey on a parent field if we do want to...
   def getIntersectors (self, o):
-    assert isinstance(o, Shape)
-
-    oBox = o.getBoundingBox()
     for shape in self._shapes:
-      if shape.intersects(o, shape.getBoundingBox().getIntersection(oBox)):
+      if shape.intersects(o):
         yield shape
 
   def intersects (self, o):
@@ -324,7 +418,7 @@ class StraightRoadTile (RoadTile):
       dX = 0
       dZ = StraightRoadTile.LEN
 
-    return parentShape.getBoundingBox().transform(dX, dZ)
+    return parentShape.getTranslation(dX, dZ)
 
   @staticmethod
   def create (direction, x, z, shapeSet, needsMinimalPlotShapes = True):
@@ -535,7 +629,7 @@ class City (object):
         tile = tiles[i]
         if not isinstance(tile, BranchBaseRoadTile) and rng.randrange(0, 10) == 0:
           reldirection = rng.choice((LEFT, RIGHT))
-          if allFalse(itertools.islice(reldirectionBranchTiles[reldirection], i - 2, i + 3)):
+          if not any(itertools.islice(reldirectionBranchTiles[reldirection], i - 2, i + 3)):
             tile0 = tile.branchise(reldirection, tileShapeSet)
             if tile0 is not None:
               tile1 = StraightRoadTile.create(tile0.getBranchDirection(), tile0.getBranchX(), tile0.getBranchZ(), tileShapeSet, False)
@@ -633,6 +727,19 @@ class Display (object):
       z = box.z0 + 1
       self.drawNS(c, box.x0, z, dZ)
       self.drawNS(c, box.x1 - 1, z, dZ)
+
+  def drawShape (self, c, shape):
+    assert isinstance(shape, Shape)
+    box = shape.getBoundingBox()
+    z = box.z0
+    for row in shape._getRows(box):
+      x = box.x0
+      while row:
+        if row & 0b1:
+          self.drawPel(c, x, z)
+        row >>= 1
+        x += 1
+      z += 1
 
   def get (self):
     viewport = self.viewport
