@@ -9,8 +9,17 @@ import array
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
+EMPTY_O = object()
+
+def empty (i):
+  return next(i, EMPTY_O) is EMPTY_O
+
 class Shape (object):
   def getBoundingBox (self):
+    raise NotImplementedError
+
+  def getMembershipGenerator (self, subBox):
+    assert isinstance(subBox, RectangularShape)
     raise NotImplementedError
 
   def intersects (self, o, boundingBoxIntersection):
@@ -22,20 +31,6 @@ class Shape (object):
     if isinstance(self, RectangularShape) and isinstance(o, RectangularShape):
       return True
     assert False # TODO
-
-  def contains (self, o, boundingBoxIntersection):
-    assert isinstance(o, Shape)
-    assert RectangularShape.eqs(boundingBoxIntersection, self.getBoundingBox().getIntersection(o.getBoundingBox()))
-
-    if boundingBoxIntersection is None:
-      return False
-    if isinstance(self, RectangularShape) and isinstance(o, RectangularShape):
-      return boundingBoxIntersection.eq(o)
-    assert False # TODO
-
-  def getMembershipGenerator (self, subBox):
-    assert isinstance(subBox, RectangularShape)
-    raise NotImplementedError
 
 class RectangularShape (Shape):
   def __init__ (self, x0, z0, x1, z1):
@@ -74,6 +69,16 @@ class RectangularShape (Shape):
       return None
     return RectangularShape(x0, z0, x1, z1)
 
+  def contains (self, o, boundingBoxIntersection):
+    assert isinstance(o, Shape)
+    assert RectangularShape.eqs(boundingBoxIntersection, self.getBoundingBox().getIntersection(o.getBoundingBox()))
+
+    if boundingBoxIntersection is None:
+      return False
+    if isinstance(self, RectangularShape) and isinstance(o, RectangularShape):
+      return boundingBoxIntersection.eq(o)
+    assert False # TODO
+
   def transform (self, dX, dZ):
     return RectangularShape(self.x0 + dX, self.z0 + dZ, self.x1 + dX, self.z1 + dZ)
 
@@ -84,11 +89,6 @@ class RectangularShape (Shape):
     assert isinstance(subBox, RectangularShape)
     assert self.contains(subBox, self.getIntersection(subBox))
     return itertools.repeat(True, (subBox.x1 - subBox.x0) * (subBox.z1 - subBox.z0))
-
-EMPTY_O = object()
-
-def empty (i):
-  return next(i, EMPTY_O) is EMPTY_O
 
 def allTrue (i):
   for v in i:
