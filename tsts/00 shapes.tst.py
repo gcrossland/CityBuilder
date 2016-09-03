@@ -108,7 +108,9 @@ def T ():
   t7 = t6.getClockwiseQuarterRotation()
   sD3 = ArbitraryShape(t7, x0, z0)
   sD4 = ArbitraryShape(t7.getClockwiseQuarterRotation(), x0, z0)
-  sDs = (sD0, sD1, sD2, sD3, sD4)
+  sD5 = ArbitraryShape(t4.getReflectionAroundXAxis(), x0, z0)
+  sD6 = ArbitraryShape(t4.getReflectionAroundZAxis(), x0, z0)
+  sDs = (sD0, sD1, sD2, sD3, sD4, sD5, sD6)
   for i in xrange(0, len(sDs)):
     d = Display(viewport)
     d.drawBox('X', viewport)

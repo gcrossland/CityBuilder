@@ -576,12 +576,48 @@ X                      X
 X                      X
 X                      X
 XXXXXXXXXXXXXXXXXXXXXXXX
- 01234
-0*****
-1*****
-2*****
-3*****
-4*****
+sD5 (with bounding box):
+XXXXXXXXXXXXXXXXXXXXXXXX
+X                      X
+X                      X
+X                      X
+X   #.#..              X
+X   #....              X
+X   #...#              X
+X   #....              X
+X   #...#              X
+X   #..#.              X
+X   ###..              X
+X                      X
+X                      X
+X                      X
+X                      X
+XXXXXXXXXXXXXXXXXXXXXXXX
+sD6 (with bounding box):
+XXXXXXXXXXXXXXXXXXXXXXXX
+X                      X
+X                      X
+X                      X
+X   ..###              X
+X   .#..#              X
+X   #...#              X
+X   ....#              X
+X   #...#              X
+X   ....#              X
+X   ..#.#              X
+X                      X
+X                      X
+X                      X
+X                      X
+XXXXXXXXXXXXXXXXXXXXXXXX
+ 0123456
+0*******
+1*******
+2*******
+3*******
+4*******
+5*******
+6*******
 
 
 sEs3:

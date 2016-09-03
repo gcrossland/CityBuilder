@@ -162,6 +162,19 @@ class ArbitraryShape (Shape):
 
       return ArbitraryShape.Template(rows, dX)
 
+    def getReflectionAroundXAxis (self):
+      return ArbitraryShape.Template(reversed(self._rows), self._dX)
+
+    def getReflectionAroundZAxis (self):
+      rows = []
+      for origRow in self._rows:
+        row = 0
+        for _ in xrange(0, self._dX):
+          row = (row << 1) | (origRow & 0b1)
+          origRow >>= 1
+        rows.append(row)
+      return ArbitraryShape.Template(rows, self._dX)
+
   def __init__ (self, t, x0, z0):
     assert isinstance(t, ArbitraryShape.Template)
     self._t = t
