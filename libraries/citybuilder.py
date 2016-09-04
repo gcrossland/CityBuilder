@@ -380,28 +380,19 @@ class RoadTile (Tile):
 class StraightRoadTile (RoadTile):
   LEN = 11
   HLEN = (LEN - 1) / 2
+  NEXT_D_XZ = {WEST: (-LEN, 0), EAST: (LEN, 0), NORTH: (0, -LEN), SOUTH: (0, LEN)}
+  TILE_D_XZ = {WEST: (-LEN + 1, -HLEN), EAST: (0, -HLEN), NORTH: (-HLEN, -LEN + 1), SOUTH: (-HLEN, 0)}
 
   def __init__ (self, direction, x, z):
     assert direction in (WEST, EAST, NORTH, SOUTH)
     assert isinstance(x, int)
     assert isinstance(z, int)
 
-    if direction == WEST:
-      nextX = x - StraightRoadTile.LEN
-      nextZ = z
-      shape = RectangularShape(nextX + 1, z - StraightRoadTile.HLEN, x + 1, z - StraightRoadTile.HLEN + StraightRoadTile.LEN)
-    elif direction == EAST:
-      nextX = x + StraightRoadTile.LEN
-      nextZ = z
-      shape = RectangularShape(x, z - StraightRoadTile.HLEN, nextX, z - StraightRoadTile.HLEN + StraightRoadTile.LEN)
-    elif direction == NORTH:
-      nextX = x
-      nextZ = z - StraightRoadTile.LEN
-      shape = RectangularShape(x - StraightRoadTile.HLEN, nextZ + 1, x - StraightRoadTile.HLEN + StraightRoadTile.LEN, z + 1)
-    elif direction == SOUTH:
-      nextX = x
-      nextZ = z + StraightRoadTile.LEN
-      shape = RectangularShape(x - StraightRoadTile.HLEN, z, x - StraightRoadTile.HLEN + StraightRoadTile.LEN, nextZ)
+    dX, dZ = StraightRoadTile.NEXT_D_XZ[direction]
+    nextX = x + dX
+    nextZ = z + dZ
+    dX, dZ = StraightRoadTile.TILE_D_XZ[direction]
+    shape = RectangularShape(x + dX, z + dZ, x + dX + StraightRoadTile.LEN, z + dZ + StraightRoadTile.LEN)
 
     RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ)
 
@@ -418,18 +409,7 @@ class StraightRoadTile (RoadTile):
     assert isinstance(parentShape, RectangularShape)
 
     plotDirection = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
-    if plotDirection == WEST:
-      dX = -StraightRoadTile.LEN
-      dZ = 0
-    elif plotDirection == EAST:
-      dX = StraightRoadTile.LEN
-      dZ = 0
-    elif plotDirection == NORTH:
-      dX = 0
-      dZ = -StraightRoadTile.LEN
-    elif plotDirection == SOUTH:
-      dX = 0
-      dZ = StraightRoadTile.LEN
+    dX, dZ = StraightRoadTile.NEXT_D_XZ[plotDirection]
 
     return parentShape.getTranslation(dX, dZ)
 
