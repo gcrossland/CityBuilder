@@ -134,7 +134,8 @@ def T ():
   t8 = ArbitraryShape.Template(ArbitraryShape.Template.rows(*(("* " * 4, " *" * 4)) * 4))
   sF0 = ArbitraryShape(t8, x0, z0)
   sF1 = ArbitraryShape(t8.getClockwiseQuarterRotation(), x0, z0)
-  sFs = (sF0, sF1)
+  sF2 = ArbitraryShape(t8.getOutline(), x0, z0)
+  sFs = (sF0, sF1, sF2)
   for i in xrange(0, len(sFs)):
     d = Display(viewport)
     d.drawBox('X', viewport)

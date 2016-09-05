@@ -678,9 +678,27 @@ X                      X
 X                      X
 X                      X
 XXXXXXXXXXXXXXXXXXXXXXXX
- 01
-0* 
-1 *
+sF2 (with bounding box):
+XXXXXXXXXXXXXXXXXXXXXXXX
+X                      X
+X                      X
+X                      X
+X   #.#.#.#.           X
+X   .#.#.#.#           X
+X   #.....#.           X
+X   .#.....#           X
+X   #.....#.           X
+X   .#.....#           X
+X   #.#.#.#.           X
+X   .#.#.#.#           X
+X                      X
+X                      X
+X                      X
+XXXXXXXXXXXXXXXXXXXXXXXX
+ 012
+0* *
+1 * 
+2* *
 
 
 
