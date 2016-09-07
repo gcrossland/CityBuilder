@@ -301,6 +301,29 @@ LEFT = 0
 RIGHT = 1
 RELDIRECTIONS_TO_DIRECTIONS = {WEST: (SOUTH, NORTH), EAST: (NORTH, SOUTH), NORTH: (WEST, EAST), SOUTH: (EAST, WEST)}
 
+class Road (object):
+  def __init__ (self, generation):
+    self._generation = generation
+    self._tiles = []
+
+  def getGeneration (self):
+    return self._generation
+
+  def getTiles (self):
+    return self._tiles
+
+  def addShapesToSet (self, shapeSet):
+    for tile in self._tiles:
+      tile.addShapesToSet(shapeSet)
+
+  def removeShapesFromSet (self, shapeSet):
+    for tile in self._tiles:
+      tile.removeShapesFromSet(shapeSet)
+
+  def place (self, world):
+    for tile in self._tiles:
+      tile.place(world)
+
 class Tile (object):
   def place (self, world):
     raise NotImplementedError
@@ -400,7 +423,7 @@ class RoadTile (Tile):
           assert s in shapeSet._shapes
           shapeSet.remove(s)
 
-  def branchise (self, branchReldirection, shapeSet):
+  def branchise (self, branchReldirection, branchGeneration, shapeSet):
     return None
 
 class StraightRoadTile (RoadTile):
@@ -452,10 +475,10 @@ class StraightRoadTile (RoadTile):
 
     return tile
 
-  def branchise (self, branchReldirection, shapeSet):
+  def branchise (self, branchReldirection, branchGeneration, shapeSet):
     self.removeShapesFromSet(shapeSet)
 
-    tile = TJunctionRoadTile.create(self.getDirection(), self.getX(), self.getZ(), branchReldirection, shapeSet)
+    tile = TJunctionRoadTile.create(self.getDirection(), self.getX(), self.getZ(), branchReldirection, branchGeneration, shapeSet)
     if tile is None:
       self.addShapesToSet(shapeSet)
       return None
@@ -562,7 +585,7 @@ class BendingStraightRoadTile (RoadTile):
 
     return tile
 
-  def branchise (self, branchReldirection, shapeSet):
+  def branchise (self, branchReldirection, branchGeneration, shapeSet):
     return None
 
   def place (self, world):
@@ -574,12 +597,11 @@ class BendingStraightRoadTile (RoadTile):
           world.placePlot(shape, direction)
 
 class BranchBaseRoadTile (RoadTile):
-  def __init__ (self, branchReldirection, branchX, branchZ):
+  def __init__ (self, branchReldirection, branchX, branchZ, branchGeneration):
     self._branchReldirection = branchReldirection
     self._branchX = branchX
     self._branchZ = branchZ
-    self._branchRoadTiles = []
-    # TODO self._branchGeneration?
+    self._branchRoad = Road(branchGeneration)
 
   def getBranchReldirection (self):
     return self._branchReldirection
@@ -593,21 +615,19 @@ class BranchBaseRoadTile (RoadTile):
   def getBranchZ (self):
     return self._branchZ
 
-  def getBranchRoadTiles (self):
-    return self._branchRoadTiles
+  def getBranchRoad (self):
+    return self._branchRoad
 
   def addShapesToSet (self, shapeSet):
     RoadTile.addShapesToSet(self, shapeSet)
-    for tile in self._branchRoadTiles:
-      tile.addShapesToSet(shapeSet)
+    self._branchRoad.addShapesToSet(shapeSet)
 
   def removeShapesFromSet (self, shapeSet):
     RoadTile.removeShapesFromSet(self, shapeSet)
-    for tile in self._branchRoadTiles:
-      tile.removeShapesFromSet(shapeSet)
+    self._branchRoad.removeShapesFromSet(shapeSet)
 
 class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
-  def __init__ (self, direction, x, z, branchReldirection):
+  def __init__ (self, direction, x, z, branchReldirection, branchGeneration):
     assert branchReldirection in (LEFT, RIGHT)
     StraightRoadTile.__init__(self, direction, x, z)
 
@@ -627,11 +647,11 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
       branchX = box.x0 + StraightRoadTile.HLEN
       branchZ = box.z1
 
-    BranchBaseRoadTile.__init__(self, branchReldirection, branchX, branchZ)
+    BranchBaseRoadTile.__init__(self, branchReldirection, branchX, branchZ, branchGeneration)
 
   @staticmethod
-  def create (direction, x, z, branchReldirection, shapeSet):
-    tile = TJunctionRoadTile(direction, x, z, branchReldirection)
+  def create (direction, x, z, branchReldirection, branchGeneration, shapeSet):
+    tile = TJunctionRoadTile(direction, x, z, branchReldirection, branchGeneration)
     if not shapeSet.addIfNotIntersecting(tile.getShape()):
       return None
 
@@ -647,7 +667,7 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
     assert len((self._leftPlotShapes, self._rightPlotShapes)[self.getBranchReldirection()]) == 0
     (self._leftPlotShapes, self._rightPlotShapes)[self.getBranchReldirection()].append(None)
 
-  def branchise (self, branchReldirection, shapeSet):
+  def branchise (self, branchReldirection, branchGeneration, shapeSet):
     return None
 
   def place (self, world):
@@ -657,8 +677,7 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
       for shape in shapes:
         if shape is not None:
           world.placePlot(shape, direction)
-    for tile in self.getBranchRoadTiles():
-      tile.place(world)
+    self.getBranchRoad().place(world)
 
 class PlotTile (Tile):
   pass
@@ -675,12 +694,12 @@ class City (object):
     self._centreZ = centreZ
     self._boundary = boundary
     self._boundaryExclusions = boundaryExclusions
-    self._roads = ([], [])
+    self._roads = (Road(0), Road(0))
     self._tileShapeSet = ShapeSet()
 
     self._reinitTileShapeSet()
-    for roadTiles, direction, x, z in itertools.izip(self._roads, (WEST, EAST), (self._centreX - 1, self._centreX), (self._centreZ, self._centreZ)):
-      self._buildMainRoad(roadTiles, direction, x, z)
+    for road, direction, x, z in itertools.izip(self._roads, (WEST, EAST), (self._centreX - 1, self._centreX), (self._centreZ, self._centreZ)):
+      self._buildMainRoad(road, direction, x, z)
 
   @staticmethod
   def invertRectangularShape (s, max = 0x3FFFFFFF):
@@ -698,49 +717,49 @@ class City (object):
     for shape in itertools.chain(City.invertRectangularShape(self._boundary), self._boundaryExclusions):
       tileShapeSet.add(shape)
 
-  def _buildMainRoad (self, roadTiles, direction, x, z):
+  def _buildMainRoad (self, road, direction, x, z):
+    tiles = road.getTiles()
+
     while True:
       tile = StraightRoadTile.create(direction, x, z, self._tileShapeSet)
       if tile is None:
         break
-      roadTiles.append(tile)
+      tiles.append(tile)
 
       direction = tile.getNextDirection()
       x = tile.getNextX()
       z = tile.getNextZ()
 
   @staticmethod
-  def walkRoadTiles (rootTilesSet, rootGeneration, fn):
-    this = list(rootTilesSet)
+  def walkRoadTiles (rootRoads, fn):
+    this = list(rootRoads)
     next = []
-    generation = rootGeneration
     while len(this) != 0:
-      for tiles in this:
-        fn(tiles, generation)
-        for tile in tiles:
+      for road in this:
+        fn(road)
+        for tile in road.getTiles():
           if isinstance(tile, BranchBaseRoadTile):
-            next.append(tile.getBranchRoadTiles())
+            next.append(tile.getBranchRoad())
       t = this
       this = next
       next = t
       del next[:]
-      generation += 1
 
   def performGrowthIteration (self, rng):
-    def reminimalisePlotShapes (tiles):
-      for tile in tiles:
+    def reminimalisePlotShapes (road):
+      for tile in road.getTiles():
         tile.reminimalisePlotShapes()
         if isinstance(tile, BranchBaseRoadTile):
-          reminimalisePlotShapes(tile.getBranchRoadTiles())
-    for tiles in self._roads:
-      reminimalisePlotShapes(tiles)
+          reminimalisePlotShapes(tile.getBranchRoad())
+    for road in self._roads:
+      reminimalisePlotShapes(road)
     self._reinitTileShapeSet()
     tileShapeSet = self._tileShapeSet
-    for tiles in self._roads:
-      for tile in tiles:
-        tile.addShapesToSet(tileShapeSet)
+    for road in self._roads:
+      road.addShapesToSet(tileShapeSet)
 
-    def addBranches (tiles, generation):
+    def addBranches (road):
+      tiles = road.getTiles()
       reldirectionBranchTiles = (
         [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == LEFT for t in tiles],
         [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == RIGHT for t in tiles]
@@ -750,19 +769,20 @@ class City (object):
         if not isinstance(tile, BranchBaseRoadTile) and rng.randrange(0, 10) == 0:
           reldirection = rng.choice((LEFT, RIGHT))
           if not any(itertools.islice(reldirectionBranchTiles[reldirection], i - 2, i + 3)):
-            tile0 = tile.branchise(reldirection, tileShapeSet)
+            tile0 = tile.branchise(reldirection, road.getGeneration() + 1, tileShapeSet)
             if tile0 is not None:
               tile1 = StraightRoadTile.create(tile0.getBranchDirection(), tile0.getBranchX(), tile0.getBranchZ(), tileShapeSet, False)
               if tile1 is not None:
-                tile0.getBranchRoadTiles().append(tile1)
+                tile0.getBranchRoad().getTiles().append(tile1)
                 tiles[i] = tile0
                 reldirectionBranchTiles[reldirection][i] = True
               else:
                 tile0.removeShapesFromSet(tileShapeSet)
                 tile.addShapesToSet(tileShapeSet)
-    City.walkRoadTiles(self._roads, 0, addBranches)
+    City.walkRoadTiles(self._roads, addBranches)
 
-    def extendRoad (tiles, generation):
+    def extendRoad (road):
+      tiles = road.getTiles()
       for i in xrange(0, rng.randrange(0, 5 + 1)):
         direction = tiles[-1].getNextDirection()
         x = tiles[-1].getNextX()
@@ -771,25 +791,24 @@ class City (object):
         if tile is None:
           break
         tiles.append(tile)
-    City.walkRoadTiles(self._roads, 0, extendRoad)
+    City.walkRoadTiles(self._roads, extendRoad)
 
   def extendPlotage (self, rng, maxDepth = 0x3FFFFFFF):
     r_plotsAdded = [False]
-    def markPlots (tiles, generation):
-      for tile in tiles:
+    def markPlots (road):
+      for tile in road.getTiles():
         added = tile.addNextPlotShapes(self._tileShapeSet)
         if added:
           r_plotsAdded[0] = True
     for _ in xrange(1, maxDepth):
       r_plotsAdded[0] = False
-      City.walkRoadTiles(self._roads, 0, markPlots)
+      City.walkRoadTiles(self._roads, markPlots)
       if not r_plotsAdded[0]:
         break
 
   def place (self, world):
-    for roadTiles in self._roads:
-      for roadTile in roadTiles:
-        roadTile.place(world)
+    for road in self._roads:
+      road.place(world)
       world.placeMarker(self._centreX, self._centreZ)
 
 # ------------------------------------------------------------------------------
