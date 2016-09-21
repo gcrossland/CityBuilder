@@ -486,6 +486,13 @@ class StraightRoadTile (RoadTile):
     assert self.getNextX() == tile.getNextX()
     assert self.getNextZ() == tile.getNextZ()
 
+    tile1 = StraightRoadTile.create(tile.getBranchDirection(), tile.getBranchX(), tile.getBranchZ(), shapeSet, False)
+    if tile1 is None:
+      tile.removeShapesFromSet(shapeSet)
+      self.addShapesToSet(shapeSet)
+      return None
+    tile.getBranchRoad().getTiles().append(tile1)
+
     return tile
 
   def place (self, world):
@@ -771,14 +778,8 @@ class City (object):
           if not any(itertools.islice(reldirectionBranchTiles[reldirection], i - 2, i + 3)):
             tile0 = tile.branchise(reldirection, road.getGeneration() + 1, tileShapeSet)
             if tile0 is not None:
-              tile1 = StraightRoadTile.create(tile0.getBranchDirection(), tile0.getBranchX(), tile0.getBranchZ(), tileShapeSet, False)
-              if tile1 is not None:
-                tile0.getBranchRoad().getTiles().append(tile1)
-                tiles[i] = tile0
-                reldirectionBranchTiles[reldirection][i] = True
-              else:
-                tile0.removeShapesFromSet(tileShapeSet)
-                tile.addShapesToSet(tileShapeSet)
+              tiles[i] = tile0
+              reldirectionBranchTiles[reldirection][i] = True
     City.walkRoadTiles(self._roads, addBranches)
 
     def extendRoad (road):
