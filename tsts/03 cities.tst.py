@@ -1,4 +1,4 @@
-from citybuilder import ShapeSet, RectangularShape, City, ConstantRng, LinearRng
+from citybuilder import ConstantRng, LinearRng, ShapeSet, RectangularShape, City, BitmapWorld
 
 D = "03 cities *"
 
@@ -6,7 +6,8 @@ def T (pathName):
   boundaryExclusions = ShapeSet()
   #boundaryExclusions.add(RectangularShape(300, 247, 301, 248))
   #boundaryExclusions.add(RectangularShape(335, 246, 336, 247))
-  c = City(230, 230, RectangularShape(0, 0, 600, 500), boundaryExclusions)
+  endpoints = [(0, 230), (600, 230)]
+  c = City(229, 230, RectangularShape(0, 0, 600, 500), boundaryExclusions, endpoints, ConstantRng(0))
 
   execfile(pathName)
 

@@ -520,7 +520,7 @@ class BendingStraightRoadTile (RoadTile):
     "***********",
     "***********",
     "********** ",
-    "*****      ",
+    "*****      "
   ))
   assert WEST_LEFT._getDX() == StraightRoadTile.LEN
   assert WEST_LEFT._getDZ() == StraightRoadTile.LEN + OFF
@@ -532,6 +532,35 @@ class BendingStraightRoadTile (RoadTile):
     EAST: WE,
     NORTH: NS,
     SOUTH: NS
+  }
+
+  WEST_LEFT_LEFT = ArbitraryShape.Template(ArbitraryShape.Template.rows(
+    "          %",
+    "     -%%%%%",
+    "%%%%%%%%%%%",
+    "%%%%%%%%%%%",
+    "%%%%%%%%%%%",
+    "%%%%%%%%%%%",
+    "%%%%%%%%%%%",
+    "%%%%%%%%%%%",
+    "%%%%%%%%%%%",
+    "%%%%%%%%%%%",
+    "%%%%%%%%%%%",
+    "%%%%%%%%%% ",
+    "%%%%%      "
+  ))
+  WEST_LEFT_RIGHT = WEST_LEFT_LEFT.getClockwiseQuarterRotation().getClockwiseQuarterRotation()
+  W = ((WEST_LEFT_LEFT, WEST_LEFT_RIGHT), (WEST_LEFT_RIGHT.getReflectionAroundXAxis(), WEST_LEFT_LEFT.getReflectionAroundXAxis()))
+  E = (tuple(reversed(W[LEFT])), tuple(reversed(W[RIGHT])))
+  NORTH_LEFT_LEFT = WEST_LEFT_LEFT.getClockwiseQuarterRotation()
+  NORTH_LEFT_RIGHT = NORTH_LEFT_LEFT.getClockwiseQuarterRotation().getClockwiseQuarterRotation()
+  N = ((NORTH_LEFT_LEFT, NORTH_LEFT_RIGHT), (NORTH_LEFT_RIGHT.getReflectionAroundZAxis(), NORTH_LEFT_LEFT.getReflectionAroundZAxis()))
+  S = (tuple(reversed(N[LEFT])), tuple(reversed(N[RIGHT])))
+  PLOT_TEMPLATES = {
+    WEST: W,
+    EAST: E,
+    NORTH: N,
+    SOUTH: S
   }
 
   def __init__ (self, direction, x, z, bendReldirection):
@@ -569,7 +598,8 @@ class BendingStraightRoadTile (RoadTile):
 
   def _getNextPlotShape (self, shapes, reldirection):
     if len(shapes) == 0:
-      parentShape = self.getShape()
+      box = self.getShape().getBoundingBox()
+      parentShape = ArbitraryShape(BendingStraightRoadTile.PLOT_TEMPLATES[self.getDirection()][self._bendReldirection][reldirection], box.x0, box.z0)
     else:
       parentShape = shapes[-1]
       if parentShape is None:
@@ -690,7 +720,7 @@ class PlotTile (Tile):
   pass
 
 class City (object):
-  def __init__ (self, centreX, centreZ, boundary, boundaryExclusions):
+  def __init__ (self, centreX, centreZ, boundary, boundaryExclusions, endpoints, rng):
     assert isinstance(centreX, int)
     assert isinstance(centreZ, int)
     assert isinstance(boundary, RectangularShape)
@@ -705,8 +735,7 @@ class City (object):
     self._tileShapeSet = ShapeSet()
 
     self._reinitTileShapeSet()
-    for road, direction, x, z in itertools.izip(self._roads, (WEST, EAST), (self._centreX - 1, self._centreX), (self._centreZ, self._centreZ)):
-      self._buildMainRoad(road, direction, x, z)
+    self._buildMainRoads(endpoints, rng)
 
   @staticmethod
   def invertRectangularShape (s, max = 0x3FFFFFFF):
@@ -724,18 +753,160 @@ class City (object):
     for shape in itertools.chain(City.invertRectangularShape(self._boundary), self._boundaryExclusions):
       tileShapeSet.add(shape)
 
-  def _buildMainRoad (self, road, direction, x, z):
-    tiles = road.getTiles()
+  def _buildMainRoads (self, endpoints, rng):
+    endpoints = list(endpoints)
+    assert len(endpoints) >= 1
+    assert all(isinstance(x, int) and isinstance(z, int) for x, z in endpoints)
 
+    primaryDirection, eis = self._buildPrimaryMainRoads(endpoints, rng)
+    for i in reversed(eis):
+      del endpoints[i]
+
+    self._buildSecondaryMainRoads(endpoints, primaryDirection, rng)
+
+  OPPOSITE_DIRECTIONS = {WEST: EAST, EAST: WEST, NORTH: SOUTH, SOUTH: NORTH}
+  D_XZ = {WEST: (-1, 0), EAST: (1, 0), NORTH: (0, -1), SOUTH: (0, 1)}
+
+  def _buildPrimaryMainRoads (self, endpoints, rng):
+    endpointDirections, endpointReldirections = zip(*(City._getMainRoadDirections(self._centreX, self._centreZ, x, z) for x, z in endpoints))
+
+    primaryEndpoint0I, primaryEndpoint1I = City._getPrimaryMainRoadEndpoints(endpoints, endpointDirections)
+
+    x, z = endpoints[primaryEndpoint0I]
+    primaryDirection = endpointDirections[primaryEndpoint0I]
+    self._buildMainRoad(self._roads[0], self._centreX, self._centreZ, x, z, primaryDirection, endpointReldirections[primaryEndpoint0I], rng)
+
+    oppositeDirection = City.OPPOSITE_DIRECTIONS[primaryDirection]
+    dX, dZ = City.D_XZ[oppositeDirection]
+    if primaryEndpoint1I is None:
+      tile = StraightRoadTile.create(oppositeDirection, self._centreX + dX, self._centreZ + dZ, self._tileShapeSet)
+      if tile is not None:
+        self._roads[1].getTiles().append(tile)
+      return (primaryDirection, (primaryEndpoint0I,))
+    assert endpointDirections[primaryEndpoint1I] == oppositeDirection
+    x, z = endpoints[primaryEndpoint1I]
+    self._buildMainRoad(self._roads[1], self._centreX + dX, self._centreZ + dZ, x, z, endpointDirections[primaryEndpoint1I], endpointReldirections[primaryEndpoint1I], rng)
+
+    return (primaryDirection, (primaryEndpoint0I, primaryEndpoint1I))
+
+  @staticmethod
+  def _getMainRoadDirections (srcX, srcZ, destX, destZ):
+    dX = destX - srcX
+    dZ = destZ - srcZ
+    assert dX != 0 or dZ != 0
+    moreXThanZ = abs(dX) > abs(dZ)
+    if dX >= 0:
+      if dZ >= 0:
+        return ((SOUTH, LEFT), (EAST, RIGHT))[moreXThanZ]
+      else:
+        return ((NORTH, RIGHT), (EAST, LEFT))[moreXThanZ]
+    else:
+      if dZ >= 0:
+        return ((SOUTH, RIGHT), (WEST, LEFT))[moreXThanZ]
+      else:
+        return ((NORTH, LEFT), (WEST, RIGHT))[moreXThanZ]
+
+  @staticmethod
+  def _getPrimaryMainRoadEndpoints (endpoints, endpointDirections):
+    oppositeDirection = City.OPPOSITE_DIRECTIONS[endpointDirections[0]]
+    for i in xrange(1, len(endpoints)):
+      if endpointDirections[i] == oppositeDirection:
+        return (0, i)
+
+    wtdDirections = (WEST, EAST)
+    if oppositeDirection in wtdDirections:
+      wtdDirections = (NORTH, SOUTH)
+    for i in xrange(0, len(endpoints)):
+      if endpointDirections[i] in wtdDirections:
+        oppositeDirection = wtdDirections[endpointDirections[i] == wtdDirections[0]]
+        assert oppositeDirection != endpointDirections[i]
+        for j in xrange(i + 1, len(endpoints)):
+          if endpointDirections[j] == oppositeDirection:
+            return (i, j)
+        break
+
+    return (0, None)
+
+  def _buildMainRoad (self, road, srcX, srcZ, destX, destZ, direction, reldirection, rng):
+    assert direction, reldirection == City._getMainRoadDirections(srcX, srcZ, destX, destZ)
+    tileShapeSet = self._tileShapeSet
+    tiles = road.getTiles()
+    assert len(tiles) == 0 or (srcX == tiles[-1].getNextX() and srcZ == tiles[-1].getNextZ())
+
+    straightCreator = lambda direction, x, z: StraightRoadTile.create(direction, x, z, tileShapeSet)
+    leftCreator = lambda direction, x, z: BendingStraightRoadTile.create(direction, x, z, LEFT, tileShapeSet)
+    rightCreator = lambda direction, x, z: BendingStraightRoadTile.create(direction, x, z, RIGHT, tileShapeSet)
+
+    straightCreators = (straightCreator,) * 6 + (leftCreator, rightCreator)
+    bendingCreators = ((leftCreator, rightCreator)[reldirection],) * 6 + (straightCreator, (rightCreator, leftCreator)[reldirection])
+
+    if direction in (WEST, EAST):
+      coordinator = lambda x, z: (x - srcX, z - srcZ)
+    else:
+      coordinator = lambda x, z: (z - srcZ, x - srcX)
+
+    destMaj, destMin = coordinator(destX, destZ)
+    expectedMinPerMaj = abs(destMin) / float(destMaj)
+    x = srcX
+    z = srcZ
     while True:
-      tile = StraightRoadTile.create(direction, x, z, self._tileShapeSet)
+      maj, min = coordinator(x, z)
+      assert (maj >= 0 and destMaj >= 0) or (maj <= 0 and destMaj <= 0)
+      if abs(maj) >= abs(destMaj):
+        break
+
+      creators = straightCreators
+      if abs(min) < expectedMinPerMaj * maj:
+        creators = bendingCreators
+      tile = rng.choice(creators)(direction, x, z)
       if tile is None:
         break
       tiles.append(tile)
 
-      direction = tile.getNextDirection()
+      assert tile.getNextDirection() == direction
       x = tile.getNextX()
       z = tile.getNextZ()
+
+  def _buildSecondaryMainRoads (self, endpoints, primaryDirection, rng):
+    if primaryDirection in (WEST, EAST):
+      coordinator = lambda x, z: (x - self._centreX, z - self._centreZ)
+      reldirectionByOppositeQuadrantPair = (RIGHT, LEFT)
+    else:
+      coordinator = lambda x, z: (z - self._centreZ, x - self._centreX)
+      reldirectionByOppositeQuadrantPair = (LEFT, RIGHT)
+    if primaryDirection in (WEST, NORTH):
+      negRoad, posRoad = self._roads
+    else:
+      posRoad, negRoad = self._roads
+
+    for x, z in endpoints:
+      maj, min = coordinator(x, z)
+
+      maxMajOffset = abs(min) * BendingStraightRoadTile.OFF / StraightRoadTile.LEN
+      assert isinstance(maxMajOffset, int) and maxMajOffset >= 0
+      intersectionMaj = maj
+      if maj >= 0:
+        intersectionMaj = maj - maxMajOffset
+        road = posRoad
+      else:
+        intersectionMaj = maj + maxMajOffset
+        road = negRoad
+
+      tiles = road.getTiles()
+      for i in xrange(0, len(tiles)):
+        tileMaj = coordinator(tiles[i].getX(), tiles[i].getZ())[0]
+        assert (maj >= 0 and tileMaj >= 0) or (maj <= 0 and tileMaj <= 0)
+        if abs(tileMaj) >= abs(intersectionMaj):
+          for j in xrange(i, len(tiles)):
+            tile = tiles[j]
+            tile0 = tile.branchise(reldirectionByOppositeQuadrantPair[(maj >= 0) ^ (min >= 0)], 0, self._tileShapeSet)
+            if tile0 is not None:
+              tiles[j] = tile0
+              direction, reldirection = City._getMainRoadDirections(tile0.getBranchX(), tile0.getBranchZ(), x, z)
+              branchTiles = tile0.getBranchRoad().getTiles()
+              self._buildMainRoad(tile0.getBranchRoad(), branchTiles[-1].getNextX(), branchTiles[-1].getNextZ(), x, z, direction, reldirection, rng)
+              break
+          break
 
   @staticmethod
   def walkRoadTiles (rootRoads, fn):
@@ -868,9 +1039,10 @@ class Display (object):
       self.drawNS(c, box.x0, z, dZ)
       self.drawNS(c, box.x1 - 1, z, dZ)
 
-  def drawShape (self, c, shape):
+  def drawShape (self, c, shape, box = None):
     assert isinstance(shape, Shape)
-    box = shape.getBoundingBox()
+    if box is None:
+      box = shape.getBoundingBox()
     z = box.z0
     for row in shape._getRows(box):
       x = box.x0
@@ -961,16 +1133,42 @@ class BitmapWorld (World):
     else:
       assert False
 
-  def placePlot (self, box, direction):
-    self._d.drawBox('.', box)
-    if direction == WEST:
-      self._d.drawNS('o', box.x1 - 1, (box.z0 + box.z1) / 2 - 1, 3)
-    elif direction == EAST:
-      self._d.drawNS('o', box.x0, (box.z0 + box.z1) / 2 - 1, 3)
-    elif direction == NORTH:
-      self._d.drawWE('o', (box.x0 + box.x1) / 2 - 1, box.z1 - 1, 3)
-    elif direction == SOUTH:
-      self._d.drawWE('o', (box.x0 + box.x1) / 2 - 1, box.z0, 3)
+  def placePlot (self, shape, direction):
+    box = shape.getBoundingBox()
+    if isinstance(shape, RectangularShape):
+      self._d.drawBox('.', shape)
+      if direction == WEST:
+        self._d.drawNS('o', box.x1 - 1, (box.z0 + box.z1) / 2 - 1, 3)
+      elif direction == EAST:
+        self._d.drawNS('o', box.x0, (box.z0 + box.z1) / 2 - 1, 3)
+      elif direction == NORTH:
+        self._d.drawWE('o', (box.x0 + box.x1) / 2 - 1, box.z1 - 1, 3)
+      elif direction == SOUTH:
+        self._d.drawWE('o', (box.x0 + box.x1) / 2 - 1, box.z0, 3)
+    else:
+      shape = ArbitraryShape(BitmapWorld.getArbitraryShapeOutline(shape), box.x0, box.z0)
+      self._d.drawShape('.', shape)
+      if direction in (WEST, EAST):
+        z0 = (box.z0 + box.z1) / 2  - 1
+        z1 = z0 + 3
+        xMid = (box.x0 + box.x1) / 2
+        if direction == WEST:
+          x0 = xMid
+          x1 = box.x1
+        else:
+          x0 = box.x0
+          x1 = xMid
+      elif direction in (NORTH, SOUTH):
+        x0 = (box.x0 + box.x1) / 2  - 1
+        x1 = x0 + 3
+        zMid = (box.z0 + box.z1) / 2
+        if direction == NORTH:
+          z0 = zMid
+          z1 = box.z1
+        else:
+          z0 = box.z0
+          z1 = zMid
+      self._d.drawShape('o', shape, RectangularShape(x0, z0, x1, z1))
 
   def placeMarker (self, x, z):
     self._d.drawWE('X', x, z, 1)

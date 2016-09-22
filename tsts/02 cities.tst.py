@@ -1,14 +1,15 @@
-from citybuilder import ShapeSet, RectangularShape, City, ConstantRng
+from citybuilder import ConstantRng, ShapeSet, RectangularShape, City, BitmapWorld
 
-def T ():
-  boundaryExclusions = ShapeSet()
-  boundaryExclusions.add(RectangularShape(100, 47, 101, 48))
-  boundaryExclusions.add(RectangularShape(135, 46, 136, 47))
-  c = City(30, 30, RectangularShape(0, 0, 140, 70), boundaryExclusions)
+D = "02 cities *"
 
+def T (pathName):
   r = ConstantRng(0)
-  c.performGrowthIteration(r)
-  c.extendPlotage(r)
+  boundaryExclusions = ShapeSet()
+  endpoints = []
+  execfile(pathName)
+  c = City(200, 200, RectangularShape(0, 0, 600, 500), boundaryExclusions, endpoints, r)
+
+  c.extendPlotage(r, 8)
 
   world = BitmapWorld(c._boundary.getBoundingBox())
   c.place(world)
