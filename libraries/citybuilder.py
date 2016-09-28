@@ -4,6 +4,7 @@
 #  © Geoff Crossland 2016
 # ------------------------------------------------------------------------------
 import itertools
+import math
 import array
 
 # ------------------------------------------------------------------------------
@@ -719,6 +720,19 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
 class PlotTile (Tile):
   pass
 
+_RADS_TO_RANGS_FACTOR = 1 / (math.pi * 0.5)
+
+def rang (dX, dZ):
+  return (math.atan2(dZ, dX) * _RADS_TO_RANGS_FACTOR) % 4
+assert rang(4, 0) == 0
+assert rang(4, 4) == 0.5
+assert rang(0, 4) == 1
+assert rang(-4, 4) == 1.5
+assert rang(-4, 0) == 2
+assert rang(-4, -4) == 2.5
+assert rang(0, -4) == 3
+assert rang(4, -4) == 3.5
+
 class City (object):
   def __init__ (self, centreX, centreZ, boundary, boundaryExclusions, endpoints, rng):
     assert isinstance(centreX, int)
@@ -768,43 +782,45 @@ class City (object):
   D_XZ = {WEST: (-1, 0), EAST: (1, 0), NORTH: (0, -1), SOUTH: (0, 1)}
 
   def _buildPrimaryMainRoads (self, endpoints, rng):
-    endpointDirections, endpointReldirections = zip(*(City._getMainRoadDirections(self._centreX, self._centreZ, x, z) for x, z in endpoints))
+    endpointDirections = tuple(City._getMainRoadDirection(self._centreX, self._centreZ, x, z) for x, z in endpoints)
 
     primaryEndpoint0I, primaryEndpoint1I = City._getPrimaryMainRoadEndpoints(endpoints, endpointDirections)
 
     x, z = endpoints[primaryEndpoint0I]
     primaryDirection = endpointDirections[primaryEndpoint0I]
-    self._buildMainRoad(self._roads[0], self._centreX, self._centreZ, x, z, primaryDirection, endpointReldirections[primaryEndpoint0I], rng)
+    self._buildMainRoad(self._roads[0], primaryDirection, self._centreX, self._centreZ, x, z, rng)
 
     oppositeDirection = City.OPPOSITE_DIRECTIONS[primaryDirection]
     dX, dZ = City.D_XZ[oppositeDirection]
+
     if primaryEndpoint1I is None:
       tile = StraightRoadTile.create(oppositeDirection, self._centreX + dX, self._centreZ + dZ, self._tileShapeSet)
       if tile is not None:
         self._roads[1].getTiles().append(tile)
       return (primaryDirection, (primaryEndpoint0I,))
-    assert endpointDirections[primaryEndpoint1I] == oppositeDirection
+
     x, z = endpoints[primaryEndpoint1I]
-    self._buildMainRoad(self._roads[1], self._centreX + dX, self._centreZ + dZ, x, z, endpointDirections[primaryEndpoint1I], endpointReldirections[primaryEndpoint1I], rng)
+    assert oppositeDirection == endpointDirections[primaryEndpoint1I]
+    self._buildMainRoad(self._roads[1], oppositeDirection, self._centreX + dX, self._centreZ + dZ, x, z, rng)
 
     return (primaryDirection, (primaryEndpoint0I, primaryEndpoint1I))
 
   @staticmethod
-  def _getMainRoadDirections (srcX, srcZ, destX, destZ):
+  def _getMainRoadDirection (srcX, srcZ, destX, destZ):
     dX = destX - srcX
     dZ = destZ - srcZ
     assert dX != 0 or dZ != 0
     moreXThanZ = abs(dX) > abs(dZ)
     if dX >= 0:
       if dZ >= 0:
-        return ((SOUTH, LEFT), (EAST, RIGHT))[moreXThanZ]
+        return (SOUTH, EAST)[moreXThanZ]
       else:
-        return ((NORTH, RIGHT), (EAST, LEFT))[moreXThanZ]
+        return (NORTH, EAST)[moreXThanZ]
     else:
       if dZ >= 0:
-        return ((SOUTH, RIGHT), (WEST, LEFT))[moreXThanZ]
+        return (SOUTH, WEST)[moreXThanZ]
       else:
-        return ((NORTH, LEFT), (WEST, RIGHT))[moreXThanZ]
+        return (NORTH, WEST)[moreXThanZ]
 
   @staticmethod
   def _getPrimaryMainRoadEndpoints (endpoints, endpointDirections):
@@ -827,45 +843,107 @@ class City (object):
 
     return (0, None)
 
-  def _buildMainRoad (self, road, srcX, srcZ, destX, destZ, direction, reldirection, rng):
-    assert direction, reldirection == City._getMainRoadDirections(srcX, srcZ, destX, destZ)
-    tileShapeSet = self._tileShapeSet
+  def _buildMainRoad (self, road, direction, x, z, destX, destZ, rng):
     tiles = road.getTiles()
-    assert len(tiles) == 0 or (srcX == tiles[-1].getNextX() and srcZ == tiles[-1].getNextZ())
+    assert len(tiles) == 0 or (direction == tiles[-1].getNextDirection() and x == tiles[-1].getNextX() and z == tiles[-1].getNextZ())
 
-    straightCreator = lambda direction, x, z: StraightRoadTile.create(direction, x, z, tileShapeSet)
-    leftCreator = lambda direction, x, z: BendingStraightRoadTile.create(direction, x, z, LEFT, tileShapeSet)
-    rightCreator = lambda direction, x, z: BendingStraightRoadTile.create(direction, x, z, RIGHT, tileShapeSet)
+    max = 0x3FFFFFFF
+    if direction == WEST:
+      assert destX < x
+      limitBox = RectangularShape(-max, -max, destX, max)
+    elif direction == EAST:
+      assert destX > x
+      limitBox = RectangularShape(destX, -max, max, max)
+    elif direction == NORTH:
+      assert destZ < z
+      limitBox = RectangularShape(-max, -max, max, destZ)
+    elif direction == SOUTH:
+      assert destZ > z
+      limitBox = RectangularShape(-max, destZ, max, max)
 
-    straightCreators = (straightCreator,) * 6 + (leftCreator, rightCreator)
-    bendingCreators = ((leftCreator, rightCreator)[reldirection],) * 6 + (straightCreator, (rightCreator, leftCreator)[reldirection])
-
-    if direction in (WEST, EAST):
-      coordinator = lambda x, z: (x - srcX, z - srcZ)
-    else:
-      coordinator = lambda x, z: (z - srcZ, x - srcX)
-
-    destMaj, destMin = coordinator(destX, destZ)
-    expectedMinPerMaj = abs(destMin) / float(destMaj)
-    x = srcX
-    z = srcZ
-    while True:
-      maj, min = coordinator(x, z)
-      assert (maj >= 0 and destMaj >= 0) or (maj <= 0 and destMaj <= 0)
-      if abs(maj) >= abs(destMaj):
-        break
-
-      creators = straightCreators
-      if abs(min) < expectedMinPerMaj * maj:
-        creators = bendingCreators
-      tile = rng.choice(creators)(direction, x, z)
+    self._tileShapeSet.add(limitBox)
+    try:
+      tile = StraightRoadTile.create(direction, x, z, self._tileShapeSet)
       if tile is None:
-        break
+        return
       tiles.append(tile)
-
-      assert tile.getNextDirection() == direction
+      assert direction == tile.getNextDirection()
       x = tile.getNextX()
       z = tile.getNextZ()
+
+      self._extendRoad(road, direction, x, z, rang(destX - x, destZ - z), rng)
+    finally:
+      self._tileShapeSet.remove(limitBox)
+
+  DIRECTIONS_AND_CREATORS = (
+    (0,                                                         (EAST,  lambda x, z, shapeSet: StraightRoadTile.create(EAST, x, z, shapeSet))),
+    (rang(StraightRoadTile.LEN, BendingStraightRoadTile.OFF),   (EAST,  lambda x, z, shapeSet: BendingStraightRoadTile.create(EAST, x, z, RIGHT, shapeSet))),
+    (rang(BendingStraightRoadTile.OFF, StraightRoadTile.LEN),   (SOUTH, lambda x, z, shapeSet: BendingStraightRoadTile.create(SOUTH, x, z, LEFT, shapeSet))),
+    (1,                                                         (SOUTH, lambda x, z, shapeSet: StraightRoadTile.create(SOUTH, x, z, shapeSet))),
+    (rang(-BendingStraightRoadTile.OFF, StraightRoadTile.LEN),  (SOUTH, lambda x, z, shapeSet: BendingStraightRoadTile.create(SOUTH, x, z, RIGHT, shapeSet))),
+    (rang(-StraightRoadTile.LEN, BendingStraightRoadTile.OFF),  (WEST,  lambda x, z, shapeSet: BendingStraightRoadTile.create(WEST, x, z, LEFT, shapeSet))),
+    (2,                                                         (WEST,  lambda x, z, shapeSet: StraightRoadTile.create(WEST, x, z, shapeSet))),
+    (rang(-StraightRoadTile.LEN, -BendingStraightRoadTile.OFF), (WEST,  lambda x, z, shapeSet: BendingStraightRoadTile.create(WEST, x, z, RIGHT, shapeSet))),
+    (rang(-BendingStraightRoadTile.OFF, -StraightRoadTile.LEN), (NORTH, lambda x, z, shapeSet: BendingStraightRoadTile.create(NORTH, x, z, LEFT, shapeSet))),
+    (3,                                                         (NORTH, lambda x, z, shapeSet: StraightRoadTile.create(NORTH, x, z, shapeSet))),
+    (rang(BendingStraightRoadTile.OFF, -StraightRoadTile.LEN),  (NORTH, lambda x, z, shapeSet: BendingStraightRoadTile.create(NORTH, x, z, RIGHT, shapeSet))),
+    (rang(StraightRoadTile.LEN, -BendingStraightRoadTile.OFF),  (EAST,  lambda x, z, shapeSet: BendingStraightRoadTile.create(EAST, x, z, LEFT, shapeSet)))
+  )
+  DIRECTIONS_AND_CREATORS += ((4, DIRECTIONS_AND_CREATORS[0][1]),)
+  assert tuple(sorted(DIRECTIONS_AND_CREATORS)) == DIRECTIONS_AND_CREATORS
+
+  @staticmethod
+  def _getDirectionAndCreatorPairForRang (rang):
+    assert rang >= 0 and rang < 4
+    i0 = -1
+    i1 = len(City.DIRECTIONS_AND_CREATORS)
+    while True:
+      assert i0 < i1
+      if i0 + 1 == i1:
+        assert i0 != -1
+        assert i1 != len(City.DIRECTIONS_AND_CREATORS)
+        return (City.DIRECTIONS_AND_CREATORS[i0][1], City.DIRECTIONS_AND_CREATORS[i1][1])
+      i = (i0 + i1) >> 1
+      assert i > i0 and i < i1
+      v = City.DIRECTIONS_AND_CREATORS[i][0]
+      if rang < v:
+        i1 = i
+      elif rang > v:
+        i0 = i
+      else:
+        c = City.DIRECTIONS_AND_CREATORS[i][1]
+        return (c, c)
+
+  def _extendRoad (self, road, direction, x, z, targetRang, rng):
+    tileShapeSet = self._tileShapeSet
+    tiles = road.getTiles()
+    assert len(tiles) == 0 or (direction == tiles[-1].getNextDirection() and x == tiles[-1].getNextX() and z == tiles[-1].getNextZ())
+
+    srcX = x
+    srcZ = z
+    attainedRang = targetRang
+    while True:
+      cs = [c for d, c in City._getDirectionAndCreatorPairForRang(targetRang) if d == direction]
+      if len(cs) == 2:
+        if (attainedRang - targetRang) % 4 < 2:
+          creators = (cs[0],) * 6 + (cs[1],)
+        else:
+          creators = (cs[1],) * 6 + (cs[0],)
+      elif len(cs) == 1:
+        creators = (cs[0],)
+      else:
+        assert False
+
+      tile = rng.choice(creators)(x, z, tileShapeSet)
+      if tile is None:
+        break
+      assert tile.getDirection() == direction
+      tiles.append(tile)
+
+      direction = tile.getNextDirection()
+      x = tile.getNextX()
+      z = tile.getNextZ()
+      attainedRang = rang(x - srcX, z - srcZ)
 
   def _buildSecondaryMainRoads (self, endpoints, primaryDirection, rng):
     if primaryDirection in (WEST, EAST):
@@ -902,9 +980,8 @@ class City (object):
             tile0 = tile.branchise(reldirectionByOppositeQuadrantPair[(maj >= 0) ^ (min >= 0)], 0, self._tileShapeSet)
             if tile0 is not None:
               tiles[j] = tile0
-              direction, reldirection = City._getMainRoadDirections(tile0.getBranchX(), tile0.getBranchZ(), x, z)
               branchTiles = tile0.getBranchRoad().getTiles()
-              self._buildMainRoad(tile0.getBranchRoad(), branchTiles[-1].getNextX(), branchTiles[-1].getNextZ(), x, z, direction, reldirection, rng)
+              self._buildMainRoad(tile0.getBranchRoad(), branchTiles[-1].getNextDirection(), branchTiles[-1].getNextX(), branchTiles[-1].getNextZ(), x, z, rng)
               break
           break
 
