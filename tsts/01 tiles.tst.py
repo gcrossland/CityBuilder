@@ -93,5 +93,6 @@ def T ():
         world._d.drawPel('g', x, z + 1)
         world._d.drawPel(str(road.getGeneration()), x, z + 1)
         r_c[0] += 1
+      return True
     City.walkRoadTiles((road,), f)
     t("{}", world.getXpm())

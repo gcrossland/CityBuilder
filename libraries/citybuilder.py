@@ -939,6 +939,7 @@ class City (object):
         break
       assert tile.getDirection() == direction
       tiles.append(tile)
+      tile.targetRang = targetRang
 
       direction = tile.getNextDirection()
       x = tile.getNextX()
@@ -991,16 +992,20 @@ class City (object):
     next = []
     while len(this) != 0:
       for road in this:
-        fn(road)
-        for tile in road.getTiles():
-          if isinstance(tile, BranchBaseRoadTile):
-            next.append(tile.getBranchRoad())
+        recurse = fn(road)
+        if recurse:
+          for tile in road.getTiles():
+            if isinstance(tile, BranchBaseRoadTile):
+              next.append(tile.getBranchRoad())
       t = this
       this = next
       next = t
       del next[:]
 
-  def performGrowthIteration (self, rng):
+  def buildRoads (self, startGeneration, rng):
+    assert isinstance(startGeneration, int)
+    assert startGeneration >= 0
+
     def reminimalisePlotShapes (road):
       for tile in road.getTiles():
         tile.reminimalisePlotShapes()
@@ -1013,7 +1018,14 @@ class City (object):
     for road in self._roads:
       road.addShapesToSet(tileShapeSet)
 
-    def addBranches (road):
+    def findAndBuild (road):
+      generation = road.getGeneration()
+      assert all(tile.getBranchRoad().getGeneration() in (generation, generation + 1) for tile in road.getTiles() if isinstance(tile, BranchBaseRoadTile))
+      if generation < startGeneration:
+        return True
+      if generation > startGeneration:
+        return False
+
       tiles = road.getTiles()
       reldirectionBranchTiles = (
         [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == LEFT for t in tiles],
@@ -1024,23 +1036,16 @@ class City (object):
         if not isinstance(tile, BranchBaseRoadTile) and rng.randrange(0, 10) == 0:
           reldirection = rng.choice((LEFT, RIGHT))
           if not any(itertools.islice(reldirectionBranchTiles[reldirection], i - 2, i + 3)):
-            tile0 = tile.branchise(reldirection, road.getGeneration() + 1, tileShapeSet)
+            tile0 = tile.branchise(reldirection, generation + 1, tileShapeSet)
             if tile0 is not None:
               tiles[i] = tile0
               reldirectionBranchTiles[reldirection][i] = True
-    City.walkRoadTiles(self._roads, addBranches)
-
-    def extendRoad (road):
-      tiles = road.getTiles()
-      for i in xrange(0, rng.randrange(0, 5 + 1)):
-        direction = tiles[-1].getNextDirection()
-        x = tiles[-1].getNextX()
-        z = tiles[-1].getNextZ()
-        tile = StraightRoadTile.create(direction, x, z, tileShapeSet)
-        if tile is None:
-          break
-        tiles.append(tile)
-    City.walkRoadTiles(self._roads, extendRoad)
+              branchTiles = tile0.getBranchRoad().getTiles()
+              assert len(branchTiles) != 0
+              targetRang = (tile.targetRang + (-1, 1)[reldirection]) % 4
+              self._extendRoad(tile0.getBranchRoad(), branchTiles[-1].getNextDirection(), branchTiles[-1].getNextX(), branchTiles[-1].getNextZ(), targetRang, rng)
+      return True
+    City.walkRoadTiles(self._roads, findAndBuild)
 
   def extendPlotage (self, rng, maxDepth = 0x3FFFFFFF):
     r_plotsAdded = [False]
@@ -1049,6 +1054,7 @@ class City (object):
         added = tile.addNextPlotShapes(self._tileShapeSet)
         if added:
           r_plotsAdded[0] = True
+      return True
     for _ in xrange(1, maxDepth):
       r_plotsAdded[0] = False
       City.walkRoadTiles(self._roads, markPlots)
