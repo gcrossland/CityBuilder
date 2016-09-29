@@ -439,18 +439,18 @@ class RoadTile (Tile):
 class StraightRoadTile (RoadTile):
   LEN = 11
   HLEN = (LEN - 1) / 2
-  NEXT_D_XZ = {WEST: (-LEN, 0), EAST: (LEN, 0), NORTH: (0, -LEN), SOUTH: (0, LEN)}
-  TILE_D_XZ = {WEST: (-LEN + 1, -HLEN), EAST: (0, -HLEN), NORTH: (-HLEN, -LEN + 1), SOUTH: (-HLEN, 0)}
+  NEXT_DS = {WEST: (-LEN, 0), EAST: (LEN, 0), NORTH: (0, -LEN), SOUTH: (0, LEN)}
+  TILE_ORIGIN_DS = {WEST: (-LEN + 1, -HLEN), EAST: (0, -HLEN), NORTH: (-HLEN, -LEN + 1), SOUTH: (-HLEN, 0)}
 
   def __init__ (self, direction, x, z):
     assert direction in (WEST, EAST, NORTH, SOUTH)
     assert isinstance(x, int)
     assert isinstance(z, int)
 
-    dX, dZ = StraightRoadTile.NEXT_D_XZ[direction]
+    dX, dZ = StraightRoadTile.NEXT_DS[direction]
     nextX = x + dX
     nextZ = z + dZ
-    dX, dZ = StraightRoadTile.TILE_D_XZ[direction]
+    dX, dZ = StraightRoadTile.TILE_ORIGIN_DS[direction]
     x0 = x + dX
     z0 = z + dZ
     shape = RectangularShape(x0, z0, x0 + StraightRoadTile.LEN, z0 + StraightRoadTile.LEN)
@@ -469,7 +469,7 @@ class StraightRoadTile (RoadTile):
         return None
 
     plotDirection = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
-    dX, dZ = StraightRoadTile.NEXT_D_XZ[plotDirection]
+    dX, dZ = StraightRoadTile.NEXT_DS[plotDirection]
 
     return parentShape.getTranslation(dX, dZ)
 
@@ -515,7 +515,7 @@ class StraightRoadTile (RoadTile):
 
 class BendingStraightRoadTile (RoadTile):
   OFF = 2
-  OFF_D_XZ = {WEST: (-OFF, 0), EAST: (OFF, 0), NORTH: (0, -OFF), SOUTH: (0, OFF)}
+  OFF_DS = {WEST: (-OFF, 0), EAST: (OFF, 0), NORTH: (0, -OFF), SOUTH: (0, OFF)}
 
   WEST_LEFT = ArbitraryShape.Template(ArbitraryShape.Template.rows(
     "      *****",
@@ -543,6 +543,39 @@ class BendingStraightRoadTile (RoadTile):
     NORTH: NS,
     SOUTH: NS
   }
+
+  def __init__ (self, direction, x, z, bendReldirection):
+    assert direction in (WEST, EAST, NORTH, SOUTH)
+    assert bendReldirection in (LEFT, RIGHT)
+    assert isinstance(x, int)
+    assert isinstance(z, int)
+
+    dX, dZ = StraightRoadTile.NEXT_DS[direction]
+    nextX = x + dX
+    nextZ = z + dZ
+    dX, dZ = BendingStraightRoadTile.OFF_DS[RELDIRECTIONS_TO_DIRECTIONS[direction][bendReldirection]]
+    nextX += dX
+    nextZ += dZ
+
+    dX, dZ = StraightRoadTile.TILE_ORIGIN_DS[direction]
+    x0 = x + dX
+    z0 = z + dZ
+    dX, dZ = BendingStraightRoadTile.OFF_DS[RELDIRECTIONS_TO_DIRECTIONS[direction][bendReldirection]]
+    assert all(abs(d) in (0, BendingStraightRoadTile.OFF) for d in (dX, dZ))
+    if dX == BendingStraightRoadTile.OFF:
+      dX = 0
+    if dZ == BendingStraightRoadTile.OFF:
+      dZ = 0
+    x0 += dX
+    z0 += dZ
+    shape = ArbitraryShape(BendingStraightRoadTile.TEMPLATES[direction][bendReldirection], x0, z0)
+
+    RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ)
+
+    self._bendReldirection = bendReldirection
+
+  def getNextDirection (self):
+    return self.getDirection()
 
   WEST_LEFT_LEFT = ArbitraryShape.Template(ArbitraryShape.Template.rows(
     "          %",
@@ -573,39 +606,6 @@ class BendingStraightRoadTile (RoadTile):
     SOUTH: S
   }
 
-  def __init__ (self, direction, x, z, bendReldirection):
-    assert direction in (WEST, EAST, NORTH, SOUTH)
-    assert bendReldirection in (LEFT, RIGHT)
-    assert isinstance(x, int)
-    assert isinstance(z, int)
-
-    dX, dZ = StraightRoadTile.NEXT_D_XZ[direction]
-    nextX = x + dX
-    nextZ = z + dZ
-    dX, dZ = BendingStraightRoadTile.OFF_D_XZ[RELDIRECTIONS_TO_DIRECTIONS[direction][bendReldirection]]
-    nextX += dX
-    nextZ += dZ
-
-    dX, dZ = StraightRoadTile.TILE_D_XZ[direction]
-    x0 = x + dX
-    z0 = z + dZ
-    dX, dZ = BendingStraightRoadTile.OFF_D_XZ[RELDIRECTIONS_TO_DIRECTIONS[direction][bendReldirection]]
-    assert all(abs(d) in (0, BendingStraightRoadTile.OFF) for d in (dX, dZ))
-    if dX == BendingStraightRoadTile.OFF:
-      dX = 0
-    if dZ == BendingStraightRoadTile.OFF:
-      dZ = 0
-    x0 += dX
-    z0 += dZ
-    shape = ArbitraryShape(BendingStraightRoadTile.TEMPLATES[direction][bendReldirection], x0, z0)
-
-    RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ)
-
-    self._bendReldirection = bendReldirection
-
-  def getNextDirection (self):
-    return self.getDirection()
-
   def _getNextPlotShape (self, shapes, reldirection):
     if len(shapes) == 0:
       box = self.getShape().getBoundingBox()
@@ -616,7 +616,7 @@ class BendingStraightRoadTile (RoadTile):
         return None
 
     plotDirection = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
-    dX, dZ = StraightRoadTile.NEXT_D_XZ[plotDirection]
+    dX, dZ = StraightRoadTile.NEXT_DS[plotDirection]
 
     return parentShape.getTranslation(dX, dZ)
 
