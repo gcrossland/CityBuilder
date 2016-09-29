@@ -438,8 +438,8 @@ class RoadTile (Tile):
 
 class StraightRoadTile (RoadTile):
   LEN = 11
-  HLEN = (LEN - 1) / 2
   NEXT_DS = {WEST: (-LEN, 0), EAST: (LEN, 0), NORTH: (0, -LEN), SOUTH: (0, LEN)}
+  HLEN = (LEN - 1) / 2
   TILE_ORIGIN_DS = {WEST: (-LEN + 1, -HLEN), EAST: (0, -HLEN), NORTH: (-HLEN, -LEN + 1), SOUTH: (-HLEN, 0)}
 
   def __init__ (self, direction, x, z):
@@ -460,18 +460,35 @@ class StraightRoadTile (RoadTile):
   def getNextDirection (self):
     return self.getDirection()
 
+  PLOT_DEPTH = 7
+  PLOT_NEXT_DS = {WEST: (-PLOT_DEPTH, 0), EAST: (PLOT_DEPTH, 0), NORTH: (0, -PLOT_DEPTH), SOUTH: (0, PLOT_DEPTH)}
+
+  WEST_LEFT = RectangularShape(0, LEN, LEN, LEN + PLOT_DEPTH)
+  WEST_RIGHT = RectangularShape(0, -PLOT_DEPTH, LEN, 0)
+  W = (WEST_LEFT, WEST_RIGHT)
+  E = tuple(reversed(W))
+  NORTH_LEFT = RectangularShape(-PLOT_DEPTH, 0, 0, LEN)
+  NORTH_RIGHT = RectangularShape(LEN, 0, LEN + PLOT_DEPTH, LEN)
+  N = (NORTH_LEFT, NORTH_RIGHT)
+  S = tuple(reversed(N))
+  PLOT_SHAPES = {
+    WEST: W,
+    EAST: E,
+    NORTH: N,
+    SOUTH: S
+  }
+
   def _getNextPlotShape (self, shapes, reldirection):
     if len(shapes) == 0:
-      parentShape = self.getShape()
+      box = self.getShape()
+      return StraightRoadTile.PLOT_SHAPES[self.getDirection()][reldirection].getTranslation(box.x0, box.z0)
     else:
       parentShape = shapes[-1]
       if parentShape is None:
         return None
-
-    plotDirection = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
-    dX, dZ = StraightRoadTile.NEXT_DS[plotDirection]
-
-    return parentShape.getTranslation(dX, dZ)
+      plotDirection = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
+      dX, dZ = StraightRoadTile.PLOT_NEXT_DS[plotDirection]
+      return parentShape.getTranslation(dX, dZ)
 
   @staticmethod
   def create (direction, x, z, shapeSet, needsMinimalPlotShapes = True):
@@ -514,6 +531,10 @@ class StraightRoadTile (RoadTile):
           world.placePlot(shape, direction)
 
 class BendingStraightRoadTile (RoadTile):
+  LEN = StraightRoadTile.LEN
+  NEXT_DS = StraightRoadTile.NEXT_DS
+  HLEN = StraightRoadTile.HLEN
+  TILE_ORIGIN_DS = StraightRoadTile.TILE_ORIGIN_DS
   OFF = 2
   OFF_DS = {WEST: (-OFF, 0), EAST: (OFF, 0), NORTH: (0, -OFF), SOUTH: (0, OFF)}
 
@@ -532,8 +553,8 @@ class BendingStraightRoadTile (RoadTile):
     "********** ",
     "*****      "
   ))
-  assert WEST_LEFT._getDX() == StraightRoadTile.LEN
-  assert WEST_LEFT._getDZ() == StraightRoadTile.LEN + OFF
+  assert WEST_LEFT._getDX() == LEN
+  assert WEST_LEFT._getDZ() == LEN + OFF
   WE = (WEST_LEFT, WEST_LEFT.getReflectionAroundXAxis())
   NORTH_LEFT = WEST_LEFT.getClockwiseQuarterRotation()
   NS = (NORTH_LEFT, NORTH_LEFT.getReflectionAroundZAxis())
@@ -550,14 +571,14 @@ class BendingStraightRoadTile (RoadTile):
     assert isinstance(x, int)
     assert isinstance(z, int)
 
-    dX, dZ = StraightRoadTile.NEXT_DS[direction]
+    dX, dZ = BendingStraightRoadTile.NEXT_DS[direction]
     nextX = x + dX
     nextZ = z + dZ
     dX, dZ = BendingStraightRoadTile.OFF_DS[RELDIRECTIONS_TO_DIRECTIONS[direction][bendReldirection]]
     nextX += dX
     nextZ += dZ
 
-    dX, dZ = StraightRoadTile.TILE_ORIGIN_DS[direction]
+    dX, dZ = BendingStraightRoadTile.TILE_ORIGIN_DS[direction]
     x0 = x + dX
     z0 = z + dZ
     dX, dZ = BendingStraightRoadTile.OFF_DS[RELDIRECTIONS_TO_DIRECTIONS[direction][bendReldirection]]
@@ -577,7 +598,10 @@ class BendingStraightRoadTile (RoadTile):
   def getNextDirection (self):
     return self.getDirection()
 
-  WEST_LEFT_LEFT = ArbitraryShape.Template(ArbitraryShape.Template.rows(
+  PLOT_DEPTH = StraightRoadTile.PLOT_DEPTH
+  PLOT_NEXT_DS = StraightRoadTile.PLOT_NEXT_DS
+
+  WEST_LEFT_LEFT = ArbitraryShape(ArbitraryShape.Template(ArbitraryShape.Template.rows(
     "          %",
     "     -%%%%%",
     "%%%%%%%%%%%",
@@ -585,21 +609,23 @@ class BendingStraightRoadTile (RoadTile):
     "%%%%%%%%%%%",
     "%%%%%%%%%%%",
     "%%%%%%%%%%%",
-    "%%%%%%%%%%%",
-    "%%%%%%%%%%%",
-    "%%%%%%%%%%%",
-    "%%%%%%%%%%%",
     "%%%%%%%%%% ",
     "%%%%%      "
-  ))
-  WEST_LEFT_RIGHT = WEST_LEFT_LEFT.getClockwiseQuarterRotation().getClockwiseQuarterRotation()
-  W = ((WEST_LEFT_LEFT, WEST_LEFT_RIGHT), (WEST_LEFT_RIGHT.getReflectionAroundXAxis(), WEST_LEFT_LEFT.getReflectionAroundXAxis()))
+  )), 0, LEN)
+  assert WEST_LEFT_LEFT._t._getDX() == LEN
+  assert WEST_LEFT_LEFT._t._getDZ() == PLOT_DEPTH + OFF
+  WEST_LEFT_RIGHT = ArbitraryShape(WEST_LEFT_LEFT._t.getClockwiseQuarterRotation().getClockwiseQuarterRotation(), 0, -PLOT_DEPTH)
+  WEST_RIGHT_LEFT = ArbitraryShape(WEST_LEFT_RIGHT._t.getReflectionAroundXAxis(), 0, LEN)
+  WEST_RIGHT_RIGHT = ArbitraryShape(WEST_LEFT_LEFT._t.getReflectionAroundXAxis(), 0, -PLOT_DEPTH)
+  W = ((WEST_LEFT_LEFT, WEST_LEFT_RIGHT), (WEST_RIGHT_LEFT, WEST_RIGHT_RIGHT))
   E = (tuple(reversed(W[LEFT])), tuple(reversed(W[RIGHT])))
-  NORTH_LEFT_LEFT = WEST_LEFT_LEFT.getClockwiseQuarterRotation()
-  NORTH_LEFT_RIGHT = NORTH_LEFT_LEFT.getClockwiseQuarterRotation().getClockwiseQuarterRotation()
-  N = ((NORTH_LEFT_LEFT, NORTH_LEFT_RIGHT), (NORTH_LEFT_RIGHT.getReflectionAroundZAxis(), NORTH_LEFT_LEFT.getReflectionAroundZAxis()))
+  NORTH_LEFT_LEFT = ArbitraryShape(WEST_LEFT_LEFT._t.getClockwiseQuarterRotation(), -PLOT_DEPTH, 0)
+  NORTH_LEFT_RIGHT = ArbitraryShape(NORTH_LEFT_LEFT._t.getClockwiseQuarterRotation().getClockwiseQuarterRotation(), LEN, 0)
+  NORTH_RIGHT_LEFT = ArbitraryShape(NORTH_LEFT_RIGHT._t.getReflectionAroundZAxis(), -PLOT_DEPTH, 0)
+  NORTH_RIGHT_RIGHT = ArbitraryShape(NORTH_LEFT_LEFT._t.getReflectionAroundZAxis(), LEN, 0)
+  N = ((NORTH_LEFT_LEFT, NORTH_LEFT_RIGHT), (NORTH_RIGHT_LEFT, NORTH_RIGHT_RIGHT))
   S = (tuple(reversed(N[LEFT])), tuple(reversed(N[RIGHT])))
-  PLOT_TEMPLATES = {
+  PLOT_SHAPES = {
     WEST: W,
     EAST: E,
     NORTH: N,
@@ -609,16 +635,14 @@ class BendingStraightRoadTile (RoadTile):
   def _getNextPlotShape (self, shapes, reldirection):
     if len(shapes) == 0:
       box = self.getShape().getBoundingBox()
-      parentShape = ArbitraryShape(BendingStraightRoadTile.PLOT_TEMPLATES[self.getDirection()][self._bendReldirection][reldirection], box.x0, box.z0)
+      return BendingStraightRoadTile.PLOT_SHAPES[self.getDirection()][self._bendReldirection][reldirection].getTranslation(box.x0, box.z0)
     else:
       parentShape = shapes[-1]
       if parentShape is None:
         return None
-
-    plotDirection = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
-    dX, dZ = StraightRoadTile.NEXT_DS[plotDirection]
-
-    return parentShape.getTranslation(dX, dZ)
+      plotDirection = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
+      dX, dZ = BendingStraightRoadTile.PLOT_NEXT_DS[plotDirection]
+      return parentShape.getTranslation(dX, dZ)
 
   @staticmethod
   def create (direction, x, z, bendReldirection, shapeSet, needsMinimalPlotShapes = True):
@@ -886,18 +910,18 @@ class City (object):
       self._tileShapeSet.remove(limitBox)
 
   DIRECTIONS_AND_CREATORS = (
-    (0,                                                         (EAST,  lambda x, z, shapeSet: StraightRoadTile.create(EAST, x, z, shapeSet))),
-    (rang(StraightRoadTile.LEN, BendingStraightRoadTile.OFF),   (EAST,  lambda x, z, shapeSet: BendingStraightRoadTile.create(EAST, x, z, RIGHT, shapeSet))),
-    (rang(BendingStraightRoadTile.OFF, StraightRoadTile.LEN),   (SOUTH, lambda x, z, shapeSet: BendingStraightRoadTile.create(SOUTH, x, z, LEFT, shapeSet))),
-    (1,                                                         (SOUTH, lambda x, z, shapeSet: StraightRoadTile.create(SOUTH, x, z, shapeSet))),
-    (rang(-BendingStraightRoadTile.OFF, StraightRoadTile.LEN),  (SOUTH, lambda x, z, shapeSet: BendingStraightRoadTile.create(SOUTH, x, z, RIGHT, shapeSet))),
-    (rang(-StraightRoadTile.LEN, BendingStraightRoadTile.OFF),  (WEST,  lambda x, z, shapeSet: BendingStraightRoadTile.create(WEST, x, z, LEFT, shapeSet))),
-    (2,                                                         (WEST,  lambda x, z, shapeSet: StraightRoadTile.create(WEST, x, z, shapeSet))),
-    (rang(-StraightRoadTile.LEN, -BendingStraightRoadTile.OFF), (WEST,  lambda x, z, shapeSet: BendingStraightRoadTile.create(WEST, x, z, RIGHT, shapeSet))),
-    (rang(-BendingStraightRoadTile.OFF, -StraightRoadTile.LEN), (NORTH, lambda x, z, shapeSet: BendingStraightRoadTile.create(NORTH, x, z, LEFT, shapeSet))),
-    (3,                                                         (NORTH, lambda x, z, shapeSet: StraightRoadTile.create(NORTH, x, z, shapeSet))),
-    (rang(BendingStraightRoadTile.OFF, -StraightRoadTile.LEN),  (NORTH, lambda x, z, shapeSet: BendingStraightRoadTile.create(NORTH, x, z, RIGHT, shapeSet))),
-    (rang(StraightRoadTile.LEN, -BendingStraightRoadTile.OFF),  (EAST,  lambda x, z, shapeSet: BendingStraightRoadTile.create(EAST, x, z, LEFT, shapeSet)))
+    (0,                                                                (EAST,  lambda x, z, shapeSet: StraightRoadTile.create(EAST, x, z, shapeSet))),
+    (rang(BendingStraightRoadTile.LEN, BendingStraightRoadTile.OFF),   (EAST,  lambda x, z, shapeSet: BendingStraightRoadTile.create(EAST, x, z, RIGHT, shapeSet))),
+    (rang(BendingStraightRoadTile.OFF, BendingStraightRoadTile.LEN),   (SOUTH, lambda x, z, shapeSet: BendingStraightRoadTile.create(SOUTH, x, z, LEFT, shapeSet))),
+    (1,                                                                (SOUTH, lambda x, z, shapeSet: StraightRoadTile.create(SOUTH, x, z, shapeSet))),
+    (rang(-BendingStraightRoadTile.OFF, BendingStraightRoadTile.LEN),  (SOUTH, lambda x, z, shapeSet: BendingStraightRoadTile.create(SOUTH, x, z, RIGHT, shapeSet))),
+    (rang(-BendingStraightRoadTile.LEN, BendingStraightRoadTile.OFF),  (WEST,  lambda x, z, shapeSet: BendingStraightRoadTile.create(WEST, x, z, LEFT, shapeSet))),
+    (2,                                                                (WEST,  lambda x, z, shapeSet: StraightRoadTile.create(WEST, x, z, shapeSet))),
+    (rang(-BendingStraightRoadTile.LEN, -BendingStraightRoadTile.OFF), (WEST,  lambda x, z, shapeSet: BendingStraightRoadTile.create(WEST, x, z, RIGHT, shapeSet))),
+    (rang(-BendingStraightRoadTile.OFF, -BendingStraightRoadTile.LEN), (NORTH, lambda x, z, shapeSet: BendingStraightRoadTile.create(NORTH, x, z, LEFT, shapeSet))),
+    (3,                                                                (NORTH, lambda x, z, shapeSet: StraightRoadTile.create(NORTH, x, z, shapeSet))),
+    (rang(BendingStraightRoadTile.OFF, -BendingStraightRoadTile.LEN),  (NORTH, lambda x, z, shapeSet: BendingStraightRoadTile.create(NORTH, x, z, RIGHT, shapeSet))),
+    (rang(BendingStraightRoadTile.LEN, -BendingStraightRoadTile.OFF),  (EAST,  lambda x, z, shapeSet: BendingStraightRoadTile.create(EAST, x, z, LEFT, shapeSet)))
   )
   DIRECTIONS_AND_CREATORS += ((4, DIRECTIONS_AND_CREATORS[0][1]),)
   assert tuple(sorted(DIRECTIONS_AND_CREATORS)) == DIRECTIONS_AND_CREATORS
@@ -971,7 +995,7 @@ class City (object):
     for x, z in endpoints:
       maj, min = coordinator(x, z)
 
-      maxMajOffset = abs(min) * BendingStraightRoadTile.OFF / StraightRoadTile.LEN
+      maxMajOffset = abs(min) * BendingStraightRoadTile.OFF / BendingStraightRoadTile.LEN
       assert isinstance(maxMajOffset, int) and maxMajOffset >= 0
       intersectionMaj = maj
       if maj >= 0:
