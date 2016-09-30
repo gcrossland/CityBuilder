@@ -1041,15 +1041,18 @@ class City (object):
         [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == LEFT for t in tiles],
         [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == RIGHT for t in tiles]
       )
+      branchProb = 0.0
       for i in xrange(2, len(tiles) - 2):
         tile = tiles[i]
-        if not isinstance(tile, BranchBaseRoadTile) and rng.randrange(0, 10) == 0:
+        branchProb += rng.randrange(0, 10) / 30.0
+        if branchProb > 1:
           reldirection = rng.choice((LEFT, RIGHT))
           if not any(itertools.islice(reldirectionBranchTiles[reldirection], i - 2, i + 3)):
             tile0 = tile.branchise(reldirection, tileShapeSet)
             if tile0 is not None:
               tiles[i] = tile0
               reldirectionBranchTiles[reldirection][i] = True
+              branchProb -= 1
 
               branchRoad = tile0.getBranchRoad()
               branchTiles = branchRoad.getTiles()
