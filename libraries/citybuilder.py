@@ -1026,6 +1026,12 @@ class City (object):
     next = []
     while len(this) != 0:
       for road in this:
+      generation = road.getGeneration()
+      assert all(tile.getBranchRoad().getGeneration() in (generation, generation + 1) for tile in road.getTiles() if isinstance(tile, BranchBaseRoadTile))
+      if generation < startGeneration:
+        return True
+      if generation > startGeneration:
+        return False
         recurse = fn(road)
         if recurse:
           for tile in road.getTiles():
@@ -1040,25 +1046,7 @@ class City (object):
     assert isinstance(startGeneration, int)
     assert startGeneration >= 0
 
-    def reminimalisePlotShapes (road):
-      for tile in road.getTiles():
-        tile.reminimalisePlotShapes()
-        if isinstance(tile, BranchBaseRoadTile):
-          reminimalisePlotShapes(tile.getBranchRoad())
-    for road in self._roads:
-      reminimalisePlotShapes(road)
-    self._reinitTileShapeSet()
-    tileShapeSet = self._tileShapeSet
-    for road in self._roads:
-      road.addShapesToSet(tileShapeSet)
-
     def findAndBuild (road):
-      generation = road.getGeneration()
-      assert all(tile.getBranchRoad().getGeneration() in (generation, generation + 1) for tile in road.getTiles() if isinstance(tile, BranchBaseRoadTile))
-      if generation < startGeneration:
-        return True
-      if generation > startGeneration:
-        return False
 
       tiles = road.getTiles()
       reldirectionBranchTiles = (
@@ -1099,6 +1087,18 @@ class City (object):
       City.walkRoadTiles(self._roads, markPlots)
       if not r_plotsAdded[0]:
         break
+
+    def reminimalisePlotShapes (road):
+      for tile in road.getTiles():
+        tile.reminimalisePlotShapes()
+        if isinstance(tile, BranchBaseRoadTile):
+          reminimalisePlotShapes(tile.getBranchRoad())
+    for road in self._roads:
+      reminimalisePlotShapes(road)
+    self._reinitTileShapeSet()
+    tileShapeSet = self._tileShapeSet
+    for road in self._roads:
+      road.addShapesToSet(tileShapeSet)
 
   def place (self, world):
     for road in self._roads:
