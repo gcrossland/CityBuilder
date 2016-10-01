@@ -3,7 +3,7 @@ from citybuilder import ConstantRng, ShapeSet, RectangularShape, City, BitmapWor
 D = "02 cities *"
 
 def T (pathName):
-  r = ConstantRng(0)
+  r = ConstantRng(0).choice
   boundaryExclusions = ShapeSet()
   endpoints = []
   execfile(pathName)

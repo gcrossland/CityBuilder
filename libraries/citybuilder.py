@@ -944,7 +944,7 @@ class City (object):
       else:
         assert False
 
-      tile = rng.choice(creators)(x, z, tileShapeSet)
+      tile = rng(creators)(x, z, tileShapeSet)
       if tile is None:
         break
       assert tile.getDirection() == direction
@@ -1044,9 +1044,9 @@ class City (object):
       branchProb = 0.0
       for i in xrange(2, len(tiles) - 2):
         tile = tiles[i]
-        branchProb += rng.randrange(0, 10) / 30.0
+        branchProb += rng(xrange(0, 10)) / 30.0
         if branchProb > 1:
-          reldirection = rng.choice((LEFT, RIGHT))
+          reldirection = rng((LEFT, RIGHT))
           if not any(itertools.islice(reldirectionBranchTiles[reldirection], i - 2, i + 3)):
             tile0 = tile.branchise(reldirection, tileShapeSet)
             if tile0 is not None:

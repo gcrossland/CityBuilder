@@ -7,7 +7,7 @@ def T (pathName):
   #boundaryExclusions.add(RectangularShape(300, 247, 301, 248))
   #boundaryExclusions.add(RectangularShape(335, 246, 336, 247))
   endpoints = [(0, 230), (600, 230)]
-  c = City(229, 230, RectangularShape(0, 0, 600, 500), boundaryExclusions, endpoints, ConstantRng(0))
+  c = City(229, 230, RectangularShape(0, 0, 600, 500), boundaryExclusions, endpoints, ConstantRng(0).choice)
 
   execfile(pathName)
 
