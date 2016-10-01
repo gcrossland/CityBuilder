@@ -1,3 +1,2 @@
-r = LinearRng().choice
-c.buildRoads(0, r)
-c.extendPlottage(3)
+r = ConstantRng(0).choice
+c.addBranches(0, True, r, (1,), (7,))
