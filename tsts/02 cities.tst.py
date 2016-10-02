@@ -9,7 +9,7 @@ def T (pathName):
   execfile(pathName)
   c = City(200, 200, RectangularShape(0, 0, 600, 500), boundaryExclusions, endpoints, r)
 
-  c.extendPlotage(r, 8)
+  c.extendPlottage(3)
 
   world = BitmapWorld(c._boundary.getBoundingBox())
   c.place(world)

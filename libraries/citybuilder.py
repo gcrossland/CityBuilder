@@ -1086,7 +1086,7 @@ class City (object):
       return True
     City.walkRoadTiles(self._roads, findAndBuild)
 
-  def extendPlotage (self, rng, maxDepth = 0x3FFFFFFF):
+  def extendPlottage (self, count = 0x3FFFFFFF):
     r_plotsAdded = [False]
     def markPlots (road):
       for tile in road.getTiles():
@@ -1094,7 +1094,7 @@ class City (object):
         if added:
           r_plotsAdded[0] = True
       return True
-    for _ in xrange(1, maxDepth):
+    for _ in xrange(0, count):
       r_plotsAdded[0] = False
       City.walkRoadTiles(self._roads, markPlots)
       if not r_plotsAdded[0]:
