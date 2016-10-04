@@ -244,18 +244,29 @@ class ShapeSet (object):
 
   def add (self, o):
     assert isinstance(o, Shape)
-
     self._shapes.add(o)
+
+  addUncontained = add
+  if __debug__:
+    def addUncontained (self, o):
+      assert o not in self._shapes
+      self.add(o)
 
   def addIfNotIntersecting (self, o):
     if self.intersects(o):
       return False
     else:
-      self.add(o)
+      self.addUncontained(o)
       return True
 
-  def remove (self, o):
-    self._shapes.remove(o)
+  def discard (self, o):
+    self._shapes.discard(o)
+
+  discardContained = discard
+  if __debug__:
+    def discardContained (self, o):
+      assert o in self._shapes
+      self.discard(o)
 
   def clear (self):
     self._shapes.clear()
@@ -395,7 +406,7 @@ class RoadTile (Tile):
     if (l is not None) + (r is not None) < minCount:
       for shape in (l, r):
         if shape is not None:
-          shapeSet.remove(shape)
+          shapeSet.discardContained(shape)
       return False
     return True
 
@@ -417,22 +428,18 @@ class RoadTile (Tile):
     self._reminimalisePlotShapes(self._rightPlotShapes)
 
   def addShapesToSet (self, shapeSet):
-    assert self._shape not in shapeSet._shapes
-    shapeSet.add(self._shape)
+    shapeSet.addUncontained(self._shape)
     for shapes in (self._leftPlotShapes, self._rightPlotShapes):
       for s in shapes:
         if s is not None:
-          assert s not in shapeSet._shapes
-          shapeSet.add(s)
+          shapeSet.addUncontained(s)
 
   def removeShapesFromSet (self, shapeSet):
-    assert self._shape in shapeSet._shapes
-    shapeSet.remove(self._shape)
+    shapeSet.discardContained(self._shape)
     for shapes in (self._leftPlotShapes, self._rightPlotShapes):
       for s in shapes:
         if s is not None:
-          assert s in shapeSet._shapes
-          shapeSet.remove(s)
+          shapeSet.discardContained(s)
 
   def branchise (self, branchReldirection, shapeSet):
     return None
@@ -498,7 +505,7 @@ class StraightRoadTile (RoadTile):
       return None
 
     if not tile._addMinimalPlotShapes((0, 2)[needsMinimalPlotShapes], shapeSet):
-      shapeSet.remove(tile.getShape())
+      shapeSet.discardContained(tile.getShape())
       return None
 
     return tile
@@ -652,7 +659,7 @@ class BendingStraightRoadTile (RoadTile):
       return None
 
     if not tile._addMinimalPlotShapes((0, 2)[needsMinimalPlotShapes], shapeSet):
-      shapeSet.remove(tile.getShape())
+      shapeSet.discardContained(tile.getShape())
       return None
 
     return tile
@@ -729,7 +736,7 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
 
     (tile._leftPlotShapes, tile._rightPlotShapes)[tile.getBranchReldirection()].append(None)
     if not tile._addMinimalPlotShapes(1, shapeSet):
-      shapeSet.remove(tile.getShape())
+      shapeSet.discardContained(tile.getShape())
       return None
 
     return tile
@@ -781,7 +788,7 @@ class City (object):
     self._boundaryExclusions = boundaryExclusions
     self._tileShapeSet = ShapeSet()
     self._maxGeneration = 0
-    self.__plotageExtended = False
+    self.__plottageExtended = False
     self._primaryMainRoads = None
     self._secondaryMainRoads = None
 
@@ -802,7 +809,7 @@ class City (object):
     tileShapeSet = self._tileShapeSet
     tileShapeSet.clear()
     for shape in itertools.chain(City.invertRectangularShape(self._boundary), self._boundaryExclusions):
-      tileShapeSet.add(shape)
+      tileShapeSet.addUncontained(shape)
 
   def _buildMainRoads (self, endpoints, rng):
     endpoints = list(endpoints)
@@ -902,7 +909,7 @@ class City (object):
       assert destZ > z
       limitBox = RectangularShape(-max, destZ, max, max)
 
-    self._tileShapeSet.add(limitBox)
+    self._tileShapeSet.addUncontained(limitBox)
     try:
       tile = StraightRoadTile.create(direction, x, z, self._tileShapeSet)
       if tile is None:
@@ -915,7 +922,7 @@ class City (object):
       road.init(rang(destX - x, destZ - z), City._INIT_BRANCHISING_STATE)
       self._extendRoad(road, direction, x, z, -1, rng)
     finally:
-      self._tileShapeSet.remove(limitBox)
+      self._tileShapeSet.discardContained(limitBox)
 
   DIRECTIONS_AND_CREATORS = (
     (0,                                                                (EAST,  lambda x, z, shapeSet: StraightRoadTile.create(EAST, x, z, shapeSet))),
@@ -1078,7 +1085,7 @@ class City (object):
   _GAP = 3
 
   def addBranches (self, targetGeneration, wholeRoad, rng, branchChoices, lengthChoices):
-    assert not self.__plotageExtended
+    assert not self.__plottageExtended
     for road, generation in self.getRoads(targetGeneration):
       if wholeRoad:
         i, branchProb = City._INIT_BRANCHISING_STATE
@@ -1118,13 +1125,17 @@ class City (object):
         road.setBranchisingState((i, branchProb))
 
   def extendRoads (self, targetGeneration, rng, lengthChoices):
-    assert not self.__plotageExtended
+    assert not self.__plottageExtended
     for road, generation in self.getRoads(targetGeneration):
       tiles = road.getTiles()
       self._extendRoad(road, tiles[-1].getNextDirection(), tiles[-1].getNextX(), tiles[-1].getNextZ(), rng(lengthChoices), rng)
 
   def extendPlottage (self, count = 0x3FFFFFFF):
-    self.__plotageExtended = True
+    if __debug__:
+      if not self.__plottageExtended:
+        self.resetPlottage()
+
+    self.__plottageExtended = True
     roads = [road for road, generation in self.getRoads()]
     for _ in xrange(0, count):
       plotsAdded = False
@@ -1136,7 +1147,29 @@ class City (object):
       if not plotsAdded:
         break
 
-  def resetPlotage (self):
+  def resetPlottage (self):
+    if not self.__plottageExtended:
+      if not __debug__:
+        return
+
+    if __debug__:
+      oldTileShapeSet__ = None
+      if not self.__plottageExtended:
+        def dumpTileShapeSet ():
+          r = []
+          for shape in self._tileShapeSet:
+            box = shape.getBoundingBox()
+            r.append((box.x0, box.z0, box.x1, box.z1))
+          r.sort()
+          return tuple(r)
+        oldTileShapeSet__ = dumpTileShapeSet()
+
+      for road in self._primaryMainRoads:
+        road.removeShapesFromSet(self._tileShapeSet)
+      for shape in self._boundaryExclusions:
+        self._tileShapeSet.discardContained(shape)
+      assert len(self._tileShapeSet._shapes) == 4
+
     def reminimalisePlotShapes (road):
       for tile in road.getTiles():
         tile.reminimalisePlotShapes()
@@ -1144,10 +1177,12 @@ class City (object):
           reminimalisePlotShapes(tile.getBranchRoad())
     for road in self._primaryMainRoads:
       reminimalisePlotShapes(road)
+
     self._reinitTileShapeSet()
     for road in self._primaryMainRoads:
       road.addShapesToSet(self._tileShapeSet)
-    self.__plotageExtended = False
+    assert oldTileShapeSet__ is None or oldTileShapeSet__ == dumpTileShapeSet()
+    self.__plottageExtended = False
 
   def place (self, world):
     for road in self._primaryMainRoads:
