@@ -34,12 +34,8 @@ class Shape (object):
       return False
 
     selfRectangular = isinstance(self, RectangularShape)
-    oRectangular = isinstance(o, RectangularShape)
-
-    if selfRectangular and oRectangular:
-      return True
-
-    if selfRectangular or oRectangular:
+    assert not (selfRectangular and isinstance(o, RectangularShape))
+    if selfRectangular or isinstance(o, RectangularShape):
       if selfRectangular:
         o1 = o
       else:
@@ -114,6 +110,11 @@ class RectangularShape (Shape):
     assert isinstance(subBox, RectangularShape)
     assert self.contains(subBox)
     return True
+
+  def intersects (self, o):
+    if isinstance(o, RectangularShape):
+      return max(self.x0, o.x0) < min(self.x1, o.x1) and max(self.z0, o.z0) < min(self.z1, o.z1)
+    return Shape.intersects(self, o)
 
 class ArbitraryShape (Shape):
   class Template (object):
