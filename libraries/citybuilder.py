@@ -298,7 +298,9 @@ class ShapeSet (object):
 
   def add (self, o):
     assert isinstance(o, Shape)
-    boundingBoxIntersection = self._boundary.getIntersection(o.getBoundingBox())
+    return self._add(o, self._boundary.getIntersection(o.getBoundingBox()))
+
+  def _add (self, o, boundingBoxIntersection):
     if boundingBoxIntersection is None:
       assert all(o not in bucket for bucket in self._buckets if bucket is not None)
       return
@@ -323,10 +325,12 @@ class ShapeSet (object):
       self.add(o)
 
   def addIfNotIntersecting (self, o):
-    if self.intersects(o):
+    assert isinstance(o, Shape)
+    boundingBoxIntersection = self._boundary.getIntersection(o.getBoundingBox())
+    if not empty(self._getIntersectors(o, boundingBoxIntersection)):
       return False
     else:
-      self.addUncontained(o)
+      self._add(o, boundingBoxIntersection)
       return True
 
   def discard (self, o):
@@ -358,7 +362,9 @@ class ShapeSet (object):
 
   def getIntersectors (self, o):
     assert isinstance(o, Shape)
-    boundingBoxIntersection = self._boundary.getIntersection(o.getBoundingBox())
+    return self._getIntersectors(o, self._boundary.getIntersection(o.getBoundingBox()))
+
+  def _getIntersectors (self, o, boundingBoxIntersection):
     if boundingBoxIntersection is None:
       # DODGY o might be a totally empty shape
       yield None
