@@ -240,17 +240,76 @@ class ArbitraryShape (Shape):
     return False
 
 class ShapeSet (object):
-  def __init__ (self):
-    self._shapes = set()
+  def __init__ (self, boundary):
+    assert isinstance(boundary, RectangularShape)
+    self._bucketDXExp = 5
+    self._bucketDX = 1 << self._bucketDXExp
+    self._bucketDZExp = 5
+    self._bucketDZ = 1 << self._bucketDZExp
+    self._boundary = boundary
+    _, _, self._bucketsXSize, bucketsZSize = self._getBs(boundary)
+    self._buckets = [None] * (self._bucketsXSize * bucketsZSize)
+
+  def _getBs (self, box):
+    boundary = self._boundary
+    x0 = boundary.x0
+    z0 = boundary.z0
+    bucketDXExp = self._bucketDXExp
+    bucketDZExp = self._bucketDZExp
+    return (
+      (box.x0 - x0) >> bucketDXExp,
+      (box.z0 - z0) >> bucketDZExp,
+      (box.x1 - x0 + self._bucketDX - 1) >> bucketDXExp,
+      (box.z1 - z0 + self._bucketDZ - 1) >> bucketDZExp
+    )
+
+  def _getBucketsI (self, bx, bz):
+    assert bx >= 0
+    assert bx < self._bucketsXSize
+    assert bz >= 0
+    r = bz * self._bucketsXSize + bx
+    assert r < len(self._buckets)
+    return r
+
+  def _getBucketsIs (self, box, withBs = False):
+    bx0, bz0, bx1, bz1 = self._getBs(box)
+
+    i = self._getBucketsI(bx0, bz0)
+    iSkip = self._bucketsXSize - (bx1 - bx0)
+    for bz in xrange(bz0, bz1):
+      assert i == self._getBucketsI(bx0, bz)
+      for bx in xrange(bx0, bx1):
+        if withBs:
+          yield i, bx, bz
+        else:
+          yield i
+        i += 1
+      i += iSkip
 
   def add (self, o):
     assert isinstance(o, Shape)
-    self._shapes.add(o)
+    boundingBoxIntersection = self._boundary.getIntersection(o.getBoundingBox())
+    if boundingBoxIntersection is None:
+      assert all(o not in bucket for bucket in self._buckets if bucket is not None)
+      return
+
+    buckets = self._buckets
+    tmp = RectangularShape(0, 0, 1, 1)
+    for i, bx, bz in self._getBucketsIs(boundingBoxIntersection, True):
+      tmp.x0 = self._boundary.x0 + (bx * self._bucketDX)
+      tmp.z0 = self._boundary.z0 + (bz * self._bucketDZ)
+      tmp.x1 = tmp.x0 + self._bucketDX
+      tmp.z1 = tmp.z0 + self._bucketDZ
+      if tmp.intersects(o):
+        bucket = buckets[i]
+        if bucket is None:
+          buckets[i] = bucket = set()
+        bucket.add(o)
 
   addUncontained = add
   if __debug__:
     def addUncontained (self, o):
-      assert o not in self._shapes
+      assert all(o not in bucket for bucket in self._buckets if bucket is not None)
       self.add(o)
 
   def addIfNotIntersecting (self, o):
@@ -261,27 +320,50 @@ class ShapeSet (object):
       return True
 
   def discard (self, o):
-    self._shapes.discard(o)
+    assert isinstance(o, Shape)
+    boundingBoxIntersection = self._boundary.getIntersection(o.getBoundingBox())
+    if boundingBoxIntersection is None:
+      assert all(o not in bucket for bucket in self._buckets if bucket is not None)
+      return
+
+    buckets = self._buckets
+    for i in self._getBucketsIs(boundingBoxIntersection):
+      bucket = buckets[i]
+      if bucket is not None:
+        bucket.discard(o)
 
   discardContained = discard
   if __debug__:
     def discardContained (self, o):
-      assert o in self._shapes
+      assert not self._boundary.intersects(o) or any(o in bucket for bucket in self._buckets if bucket is not None)
       self.discard(o)
 
   def clear (self):
-    self._shapes.clear()
-
-  def __iter__ (self):
-    return iter(self._shapes)
+    for bucket in self._buckets:
+      if bucket is not None:
+        bucket.clear()
 
   def __contains__ (self, o):
     raise TypeError
 
   def getIntersectors (self, o):
-    for shape in self._shapes:
-      if shape.intersects(o):
-        yield shape
+    assert isinstance(o, Shape)
+    boundingBoxIntersection = self._boundary.getIntersection(o.getBoundingBox())
+    if boundingBoxIntersection is None:
+      # DODGY o might be a totally empty shape
+      yield None
+      return
+
+    buckets = self._buckets
+    for i in self._getBucketsIs(boundingBoxIntersection):
+      bucket = buckets[i]
+      if bucket is not None:
+        for shape in bucket:
+          if shape.intersects(o):
+            yield shape
+    if not boundingBoxIntersection.eq(o.getBoundingBox()):
+      # DODGY o might be empty outside the boundary
+      yield None
 
   def intersects (self, o):
     return not empty(self.getIntersectors(o))
@@ -780,14 +862,12 @@ class City (object):
     assert isinstance(centreX, int)
     assert isinstance(centreZ, int)
     assert isinstance(boundary, RectangularShape)
-    assert isinstance(boundaryExclusions, ShapeSet)
     # TODO target population, initial target population density
-
     self._centreX = centreX
     self._centreZ = centreZ
-    self._boundary = boundary
-    self._boundaryExclusions = boundaryExclusions
-    self._tileShapeSet = ShapeSet()
+    self._tileShapeSet = ShapeSet(boundary)
+    self._boundaryExclusions = tuple(boundaryExclusions)
+    assert all(isinstance(s, Shape) for s in self._boundaryExclusions)
     self._maxGeneration = 0
     self.__plottageExtended = False
     self._primaryMainRoads = None
@@ -796,20 +876,10 @@ class City (object):
     self._reinitTileShapeSet()
     self._buildMainRoads(endpoints, rng)
 
-  @staticmethod
-  def invertRectangularShape (s, max = 0x3FFFFFFF):
-    assert isinstance(s, RectangularShape)
-    return (
-      RectangularShape(-max, -max, s.x0, max),
-      RectangularShape(s.x1, -max, max, max),
-      RectangularShape(s.x0, -max, s.x1, s.z0),
-      RectangularShape(s.x0, s.z1, s.x1, max)
-    )
-
   def _reinitTileShapeSet (self):
     tileShapeSet = self._tileShapeSet
     tileShapeSet.clear()
-    for shape in itertools.chain(City.invertRectangularShape(self._boundary), self._boundaryExclusions):
+    for shape in self._boundaryExclusions:
       tileShapeSet.addUncontained(shape)
 
   def _buildMainRoads (self, endpoints, rng):
@@ -1154,11 +1224,14 @@ class City (object):
         return
 
     if __debug__:
+      def getShapeSet (shapeSet):
+        return set(itertools.chain.from_iterable(bucket for bucket in shapeSet._buckets if bucket is not None))
+
       oldTileShapeSet__ = None
       if not self.__plottageExtended:
         def dumpTileShapeSet ():
           r = []
-          for shape in self._tileShapeSet:
+          for shape in getShapeSet(self._tileShapeSet):
             box = shape.getBoundingBox()
             r.append((box.x0, box.z0, box.x1, box.z1))
           r.sort()
@@ -1169,7 +1242,7 @@ class City (object):
         road.removeShapesFromSet(self._tileShapeSet)
       for shape in self._boundaryExclusions:
         self._tileShapeSet.discardContained(shape)
-      assert len(self._tileShapeSet._shapes) == 4
+      assert len(getShapeSet(self._tileShapeSet)) == 0
 
     def reminimalisePlotShapes (road):
       for tile in road.getTiles():
