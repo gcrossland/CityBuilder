@@ -14,6 +14,16 @@ EMPTY_O = object()
 def empty (i):
   return next(i, EMPTY_O) is EMPTY_O
 
+def max2 (a, b):
+  if a > b:
+    return a
+  return b
+
+def min2 (a, b):
+  if a < b:
+    return a
+  return b
+
 class Shape (object):
   def getTranslation (self, dX, dZ):
     raise NotImplementedError
@@ -80,12 +90,12 @@ class RectangularShape (Shape):
 
   def getIntersection (self, o):
     assert isinstance(o, RectangularShape)
-    x0 = max(self.x0, o.x0)
-    x1 = min(self.x1, o.x1)
+    x0 = max2(self.x0, o.x0)
+    x1 = min2(self.x1, o.x1)
     if x0 >= x1:
       return None
-    z0 = max(self.z0, o.z0)
-    z1 = min(self.z1, o.z1)
+    z0 = max2(self.z0, o.z0)
+    z1 = min2(self.z1, o.z1)
     if z0 >= z1:
       return None
     return RectangularShape(x0, z0, x1, z1)
@@ -113,7 +123,7 @@ class RectangularShape (Shape):
 
   def intersects (self, o):
     if isinstance(o, RectangularShape):
-      return max(self.x0, o.x0) < min(self.x1, o.x1) and max(self.z0, o.z0) < min(self.z1, o.z1)
+      return max2(self.x0, o.x0) < min2(self.x1, o.x1) and max2(self.z0, o.z0) < min2(self.z1, o.z1)
     return Shape.intersects(self, o)
 
 class ArbitraryShape (Shape):
