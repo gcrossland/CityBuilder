@@ -5,7 +5,6 @@
 # ------------------------------------------------------------------------------
 import itertools
 import math
-import array
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
@@ -1286,7 +1285,7 @@ class Display (object):
     assert isinstance(viewport, RectangularShape)
     self.viewport = viewport
     self._viewportWidth = viewport.x1 - viewport.x0
-    self._vBuffer = array.array('B', itertools.repeat(ord(' '), (viewport.z1 - viewport.z0) * self._viewportWidth))
+    self._vBuffer = bytearray((ord(' '),)) * ((viewport.z1 - viewport.z0) * self._viewportWidth)
 
   def _getI (self, x, z):
     assert isinstance(x, int)
@@ -1352,8 +1351,8 @@ class Display (object):
   def get (self):
     viewport = self.viewport
     viewportWidth = self._viewportWidth
-    vBuffer = self._vBuffer
-    return [vBuffer[i:i + viewportWidth].tostring() for i in xrange(0, (viewport.z1 - viewport.z0) * viewportWidth, viewportWidth)]
+    vBuffer = memoryview(self._vBuffer)
+    return [vBuffer[i:i + viewportWidth].tobytes() for i in xrange(0, (viewport.z1 - viewport.z0) * viewportWidth, viewportWidth)]
 
 class BitmapWorld (World):
   def __init__ (self, boundingBox):
