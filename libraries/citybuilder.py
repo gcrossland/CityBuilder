@@ -1298,17 +1298,16 @@ class Display (object):
     return (z - viewport.z0) * self._viewportWidth + (x - viewport.x0)
 
   def drawPel (self, c, x0, z0):
-    self._vBuffer[self._getI(x0, z0)] = ord(c)
+    self._vBuffer[self._getI(x0, z0)] = c
 
   def drawWE (self, c, x0, z0, l):
     assert isinstance(l, int)
     assert l >= 0
     assert x0 + l <= self.viewport.x1
     i = self._getI(x0, z0)
-    pel = ord(c)
     vBuffer = self._vBuffer
     for _ in xrange(0, l):
-      vBuffer[i] = pel
+      vBuffer[i] = c
       i += 1
 
   def drawNS (self, c, x0, z0, l):
@@ -1316,11 +1315,10 @@ class Display (object):
     assert l >= 0
     assert z0 + l <= self.viewport.z1
     i = self._getI(x0, z0)
-    pel = ord(c)
     vBuffer = self._vBuffer
     viewportWidth = self._viewportWidth
     for _ in xrange(0, l):
-      vBuffer[i] = pel
+      vBuffer[i] = c
       i += viewportWidth
 
   def drawBox (self, c, box):
@@ -1338,7 +1336,6 @@ class Display (object):
     assert isinstance(shape, Shape)
     if box is None:
       box = shape.getBoundingBox()
-    pel = ord(c)
     vBuffer = self._vBuffer
     viewportWidth = self._viewportWidth
     viewportX0 = self.viewport.x0
@@ -1349,7 +1346,7 @@ class Display (object):
       while row:
         if row & 0b1:
           assert i == self._getI(vx + self.viewport.x0, vz + self.viewport.z0)
-          vBuffer[i] = pel
+          vBuffer[i] = c
         row >>= 1
         i += 1
         vx += 1
