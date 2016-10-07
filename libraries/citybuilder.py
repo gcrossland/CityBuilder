@@ -1338,15 +1338,22 @@ class Display (object):
     assert isinstance(shape, Shape)
     if box is None:
       box = shape.getBoundingBox()
-    z = box.z0
+    pel = ord(c)
+    vBuffer = self._vBuffer
+    viewportWidth = self._viewportWidth
+    viewportX0 = self.viewport.x0
+    vz = box.z0 - self.viewport.z0
     for row in shape._getRows(box):
-      x = box.x0
+      vx = box.x0 - viewportX0
+      i = vz * viewportWidth + vx
       while row:
         if row & 0b1:
-          self.drawPel(c, x, z)
+          assert i == self._getI(vx + self.viewport.x0, vz + self.viewport.z0)
+          vBuffer[i] = pel
         row >>= 1
-        x += 1
-      z += 1
+        i += 1
+        vx += 1
+      vz += 1
 
   def get (self):
     viewport = self.viewport
