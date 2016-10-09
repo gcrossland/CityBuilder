@@ -10,7 +10,7 @@ def T (pathName):
   c = City(199, 200, RectangularShape(0, 0, 600, 500), boundaryExclusions, endpoints, ConstantRng(0).choice)
 
   execfile(pathName)
-  c.extendPlottage(3)
+  c.extendPlottage(7)
 
   world = BitmapWorld(c._tileShapeSet._boundary)
   c.place(world)
