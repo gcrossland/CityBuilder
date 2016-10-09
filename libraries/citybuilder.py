@@ -42,9 +42,9 @@ class Shape (object):
     if boundingBoxIntersection is None:
       return False
 
-    selfRectangular = isinstance(self, RectangularShape)
-    assert not (selfRectangular and isinstance(o, RectangularShape))
-    if selfRectangular or isinstance(o, RectangularShape):
+    selfRectangular = self.__class__ is RectangularShape
+    assert not (selfRectangular and o.__class__ is RectangularShape)
+    if selfRectangular or o.__class__ is RectangularShape:
       if selfRectangular:
         o1 = o
       else:
@@ -121,7 +121,7 @@ class RectangularShape (Shape):
     return True
 
   def intersects (self, o):
-    if isinstance(o, RectangularShape):
+    if o.__class__ is RectangularShape:
       return max2(self.x0, o.x0) < min2(self.x1, o.x1) and max2(self.z0, o.z0) < min2(self.z1, o.z1)
     return Shape.intersects(self, o)
 
