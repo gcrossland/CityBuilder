@@ -50,13 +50,13 @@ class Shape (object):
       else:
         o1 = self
       r = o1._any(boundingBoxIntersection)
-      assert r == any(row != 0 for row in o1._getRows(boundingBoxIntersection))
+      assert r == any(row for row in o1._getRows(boundingBoxIntersection))
       return r
 
     selfRows = self._getRows(boundingBoxIntersection)
     oRows = o._getRows(boundingBoxIntersection)
     for selfRow, oRow in itertools.izip(selfRows, oRows):
-      if (selfRow & oRow) != 0:
+      if (selfRow & oRow) != 0b0:
         return True
     assert empty(selfRows)
     assert empty(oRows)
@@ -113,7 +113,7 @@ class RectangularShape (Shape):
   def _getRows (self, subBox):
     assert isinstance(subBox, RectangularShape)
     assert self.contains(subBox)
-    return itertools.repeat((1 << (subBox.x1 - subBox.x0)) - 1, (subBox.z1 - subBox.z0))
+    return itertools.repeat((0b1 << (subBox.x1 - subBox.x0)) - 1, (subBox.z1 - subBox.z0))
 
   def _any (self, subBox):
     assert isinstance(subBox, RectangularShape)
@@ -131,7 +131,7 @@ class ArbitraryShape (Shape):
     def rows (*strRows):
       rows = []
       for strRow in strRows:
-        row = 0
+        row = 0b0
         for c in reversed(strRow):
           row <<= 1
           if c != ' ':
@@ -166,7 +166,7 @@ class ArbitraryShape (Shape):
 
       rows = []
       for z in xrange(0, dZ):
-        row = 0
+        row = 0b0
         for x in xrange(dX - 1, -1, -1):
           row = (row << 1) | self._get(z, dX - 1 - x)
         rows.append(row)
@@ -179,7 +179,7 @@ class ArbitraryShape (Shape):
     def getReflectionAroundZAxis (self):
       rows = []
       for origRow in self._rows:
-        row = 0
+        row = 0b0
         for _ in xrange(0, self._dX):
           row = (row << 1) | (origRow & 0b1)
           origRow >>= 1
@@ -190,7 +190,7 @@ class ArbitraryShape (Shape):
       dX = self._getDX()
       dZ = self._getDZ()
 
-      rows = [0] * dZ
+      rows = [0b0] * dZ
       for z in xrange(0, dZ):
         for i in xrange(0, dX):
           if self._get(i, z):
@@ -229,7 +229,7 @@ class ArbitraryShape (Shape):
     x0 = box.x0
     z0 = box.z0
     x0R = subBox.x0 - x0
-    x1RMask = (1 << (subBox.x1 - x0)) - 1
+    x1RMask = (0b1 << (subBox.x1 - x0)) - 1
     rows = self._t._rows
     for z in xrange(subBox.z0 - z0, subBox.z1 - z0):
       yield (rows[z] & x1RMask) >> x0R
@@ -240,11 +240,11 @@ class ArbitraryShape (Shape):
     box = self._boundingBox
     x0 = box.x0
     z0 = box.z0
-    xRMask = (1 << (subBox.x1 - x0)) - 1
-    xRMask &= ~((1 << (subBox.x0 - x0)) - 1)
+    xRMask = (0b1 << (subBox.x1 - x0)) - 1
+    xRMask &= ~((0b1 << (subBox.x0 - x0)) - 1)
     rows = self._t._rows
     for z in xrange(subBox.z0 - z0, subBox.z1 - z0):
-      if (rows[z] & xRMask) != 0:
+      if (rows[z] & xRMask) != 0b0:
         return True
     return False
 
@@ -297,7 +297,7 @@ class ShapeSet (object):
 
   def add (self, o):
     assert isinstance(o, Shape)
-    return self._add(o, self._boundary.getIntersection(o.getBoundingBox()))
+    self._add(o, self._boundary.getIntersection(o.getBoundingBox()))
 
   def _add (self, o, boundingBoxIntersection):
     if boundingBoxIntersection is None:
@@ -884,7 +884,7 @@ class City (object):
     self._boundaryExclusions = tuple(boundaryExclusions)
     assert all(isinstance(s, Shape) for s in self._boundaryExclusions)
     self._maxGeneration = 0
-    self.__plottageExtended = False
+    self._plottageExtended = False
     self._primaryMainRoads = None
     self._secondaryMainRoads = None
 
@@ -917,7 +917,7 @@ class City (object):
 
     endpointDirections = tuple(City._getMainRoadDirection(self._centreX, self._centreZ, x, z) for x, z in endpoints)
 
-    primaryEndpoint0I, primaryEndpoint1I = City._getPrimaryMainRoadEndpoints(endpoints, endpointDirections)
+    primaryEndpoint0I, primaryEndpoint1I = City._getPrimaryMainRoadEndpoints(endpointDirections)
 
     x, z = endpoints[primaryEndpoint0I]
     primaryDirection = endpointDirections[primaryEndpoint0I]
@@ -957,20 +957,20 @@ class City (object):
         return (NORTH, WEST)[moreXThanZ]
 
   @staticmethod
-  def _getPrimaryMainRoadEndpoints (endpoints, endpointDirections):
+  def _getPrimaryMainRoadEndpoints (endpointDirections):
     oppositeDirection = City.OPPOSITE_DIRECTIONS[endpointDirections[0]]
-    for i in xrange(1, len(endpoints)):
+    for i in xrange(1, len(endpointDirections)):
       if endpointDirections[i] == oppositeDirection:
         return (0, i)
 
     wtdDirections = (WEST, EAST)
     if oppositeDirection in wtdDirections:
       wtdDirections = (NORTH, SOUTH)
-    for i in xrange(0, len(endpoints)):
+    for i in xrange(0, len(endpointDirections)):
       if endpointDirections[i] in wtdDirections:
         oppositeDirection = wtdDirections[endpointDirections[i] == wtdDirections[0]]
         assert oppositeDirection != endpointDirections[i]
-        for j in xrange(i + 1, len(endpoints)):
+        for j in xrange(i + 1, len(endpointDirections)):
           if endpointDirections[j] == oppositeDirection:
             return (i, j)
         break
@@ -1171,7 +1171,7 @@ class City (object):
   _GAP = 3
 
   def addBranches (self, targetGeneration, wholeRoad, rng, branchChoices, lengthChoices):
-    assert not self.__plottageExtended
+    assert not self._plottageExtended
     for road, generation in self.getRoads(targetGeneration):
       if wholeRoad:
         i, branchProb = City._INIT_BRANCHISING_STATE
@@ -1211,17 +1211,17 @@ class City (object):
         road.setBranchisingState((i, branchProb))
 
   def extendRoads (self, targetGeneration, rng, lengthChoices):
-    assert not self.__plottageExtended
+    assert not self._plottageExtended
     for road, generation in self.getRoads(targetGeneration):
       tiles = road.getTiles()
       self._extendRoad(road, tiles[-1].getNextDirection(), tiles[-1].getNextX(), tiles[-1].getNextZ(), rng(lengthChoices), rng)
 
   def extendPlottage (self, count = 0x3FFFFFFF):
     if __debug__:
-      if not self.__plottageExtended:
+      if not self._plottageExtended:
         self.resetPlottage()
 
-    self.__plottageExtended = True
+    self._plottageExtended = True
     roads = [road for road, generation in self.getRoads()]
     for _ in xrange(0, count):
       plotsAdded = False
@@ -1234,7 +1234,7 @@ class City (object):
         break
 
   def resetPlottage (self):
-    if not self.__plottageExtended:
+    if not self._plottageExtended:
       if not __debug__:
         return
 
@@ -1243,7 +1243,7 @@ class City (object):
         return set(itertools.chain.from_iterable(bucket for bucket in shapeSet._buckets if bucket is not None))
 
       oldTileShapeSet__ = None
-      if not self.__plottageExtended:
+      if not self._plottageExtended:
         def dumpTileShapeSet ():
           r = []
           for shape in getShapeSet(self._tileShapeSet):
@@ -1271,7 +1271,7 @@ class City (object):
     for road in self._primaryMainRoads:
       road.addShapesToSet(self._tileShapeSet)
     assert oldTileShapeSet__ is None or oldTileShapeSet__ == dumpTileShapeSet()
-    self.__plottageExtended = False
+    self._plottageExtended = False
 
   def place (self, world):
     for road in self._primaryMainRoads:
