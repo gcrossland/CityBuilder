@@ -2,12 +2,12 @@ from citybuilder import RectangularShape, ArbitraryShape, Display
 
 def T ():
   d = Display(RectangularShape(0, 0, 70, 70))
-  d.drawBox('*', RectangularShape(1, 1, 70 - 1, 70 - 1))
-  d.drawBox('p', RectangularShape(1, 2, 70 - 3, 70 - 4))
-  d.drawBox('q', RectangularShape(14, 13, 70 - 12, 70 - 11))
-  d.drawBox('r', RectangularShape(20, 20, 23, 23))
-  d.drawBox('s', RectangularShape(30, 30, 32, 32))
-  d.drawBox('t', RectangularShape(40, 40, 41, 41))
+  d.drawBox(ord('*'), RectangularShape(1, 1, 70 - 1, 70 - 1))
+  d.drawBox(ord('p'), RectangularShape(1, 2, 70 - 3, 70 - 4))
+  d.drawBox(ord('q'), RectangularShape(14, 13, 70 - 12, 70 - 11))
+  d.drawBox(ord('r'), RectangularShape(20, 20, 23, 23))
+  d.drawBox(ord('s'), RectangularShape(30, 30, 32, 32))
+  d.drawBox(ord('t'), RectangularShape(40, 40, 41, 41))
   # TODO single arg t() that just prints the value?
   # TODO include e.g. tsts/libraries in the pythonpath?
   # TODO do cmp iff tsts.good exists?
@@ -20,11 +20,11 @@ def T ():
   def getIntersectionTable (ss):
     d = Display(RectangularShape(-1, -1, len(ss), len(ss)))
     for i in xrange(0, len(ss)):
-      d.drawPel(str(i), i, -1)
-      d.drawPel(str(i), -1, i)
+      d.drawPel(ord(str(i)), i, -1)
+      d.drawPel(ord(str(i)), -1, i)
     for x in xrange(0, len(ss)):
       for z in xrange(0, len(ss)):
-        d.drawPel((' ', '*')[ss[x].intersects(ss[z])], x, z)
+        d.drawPel((ord(' '), ord('*'))[ss[x].intersects(ss[z])], x, z)
     return "\n".join(d.get())
 
   sA0 = RectangularShape(x0, z0, x0 + 5, z0 + 4)
@@ -38,16 +38,16 @@ def T ():
   sAs = (sA0, sA1, sA2, sA3, sA4, sA5, sA6, sA7)
   for i in xrange(0, len(sAs)):
     d = Display(viewport)
-    d.drawBox('X', viewport)
+    d.drawBox(ord('X'), viewport)
     for j in xrange(0, i):
-      d.drawShape('-', sAs[j])
-    d.drawShape('#', sAs[i])
+      d.drawShape(ord('-'), sAs[j])
+    d.drawShape(ord('#'), sAs[i])
     t("cumulative to sA{}:\n{}", i, "\n".join(d.get()))
   t("{}\n\n", getIntersectionTable(sAs))
 
   def drawShape (s):
     d = Display(viewport)
-    d.drawShape('#', s)
+    d.drawShape(ord('#'), s)
     return "\n".join(d.get())
 
   t0 = ArbitraryShape.Template((0b11111, 0b11111, 0b11111, 0b11111))
@@ -113,9 +113,9 @@ def T ():
   sDs = (sD0, sD1, sD2, sD3, sD4, sD5, sD6)
   for i in xrange(0, len(sDs)):
     d = Display(viewport)
-    d.drawBox('X', viewport)
-    d.drawShape('.', sDs[i].getBoundingBox())
-    d.drawShape('#', sDs[i])
+    d.drawBox(ord('X'), viewport)
+    d.drawShape(ord('.'), sDs[i].getBoundingBox())
+    d.drawShape(ord('#'), sDs[i])
     t("sD{} (with bounding box):\n{}", i, "\n".join(d.get()))
   t("{}\n\n", getIntersectionTable(sDs))
 
@@ -125,9 +125,9 @@ def T ():
   sE3 = ArbitraryShape(t7, x0 + 4 - 1 - 6, z0 + 3 + 1 + 1)
   sEs = (sE0, sE1, sE2, sE3)
   d = Display(viewport)
-  d.drawBox('X', viewport)
+  d.drawBox(ord('X'), viewport)
   for i in xrange(0, len(sEs)):
-    d.drawShape(str(i), sEs[i])
+    d.drawShape(ord(str(i)), sEs[i])
   t("sEs{}:\n{}", i, "\n".join(d.get()))
   t("{}\n\n", getIntersectionTable(sEs))
 
@@ -138,8 +138,8 @@ def T ():
   sFs = (sF0, sF1, sF2)
   for i in xrange(0, len(sFs)):
     d = Display(viewport)
-    d.drawBox('X', viewport)
-    d.drawShape('.', sFs[i].getBoundingBox())
-    d.drawShape('#', sFs[i])
+    d.drawBox(ord('X'), viewport)
+    d.drawShape(ord('.'), sFs[i].getBoundingBox())
+    d.drawShape(ord('#'), sFs[i])
     t("sF{} (with bounding box):\n{}", i, "\n".join(d.get()))
   t("{}\n\n", getIntersectionTable(sFs))

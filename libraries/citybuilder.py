@@ -1366,34 +1366,34 @@ class BitmapWorld (World):
     assert isinstance(shape, RectangularShape)
     box = shape
 
-    self._d.drawBox('#', box)
+    self._d.drawBox(ord('#'), box)
     self._placeRoadTileRoad(box, direction)
 
   def _placeRoadTileRoad (self, box, direction):
     if direction in (WEST, EAST):
       z = (box.z0 + box.z1) / 2
-      self._d.drawWE('-', box.x0 + 1, z, box.x1 - box.x0 - 2)
+      self._d.drawWE(ord('-'), box.x0 + 1, z, box.x1 - box.x0 - 2)
       if direction == WEST:
         x0 = box.x0 + 1
         x1 = x0 + 1
       else:
         x0 = box.x1 - 2
         x1 = x0 - 1
-      self._d.drawPel('*', x0, z)
-      self._d.drawPel('*', x1, z - 1)
-      self._d.drawPel('*', x1, z + 1)
+      self._d.drawPel(ord('*'), x0, z)
+      self._d.drawPel(ord('*'), x1, z - 1)
+      self._d.drawPel(ord('*'), x1, z + 1)
     elif direction in (NORTH, SOUTH):
       x = (box.x0 + box.x1) / 2
-      self._d.drawNS('|', x, box.z0 + 1, box.z1 - box.z0 - 2)
+      self._d.drawNS(ord('|'), x, box.z0 + 1, box.z1 - box.z0 - 2)
       if direction == NORTH:
         z0 = box.z0 + 1
         z1 = z0 + 1
       else:
         z0 = box.z1 - 2
         z1 = z0 - 1
-      self._d.drawPel('*', x, z0)
-      self._d.drawPel('*', x - 1, z1)
-      self._d.drawPel('*', x + 1, z1)
+      self._d.drawPel(ord('*'), x, z0)
+      self._d.drawPel(ord('*'), x - 1, z1)
+      self._d.drawPel(ord('*'), x + 1, z1)
     else:
       assert False
 
@@ -1411,7 +1411,7 @@ class BitmapWorld (World):
   def placeBendingStraightRoadTile (self, shape, direction):
     box = shape.getBoundingBox()
 
-    self._d.drawShape('#', ArbitraryShape(BitmapWorld.getArbitraryShapeOutline(shape), box.x0, box.z0))
+    self._d.drawShape(ord('#'), ArbitraryShape(BitmapWorld.getArbitraryShapeOutline(shape), box.x0, box.z0))
     self._placeRoadTileRoad(box, direction)
 
   def placeTJunctionRoadTile (self, shape, direction, branchDirection):
@@ -1422,31 +1422,31 @@ class BitmapWorld (World):
     l = (box.x1 - box.x0 - 2) / 2
     assert l == (box.z1 - box.z0 - 2) / 2
     if branchDirection == WEST:
-      self._d.drawWE('-', box.x0 + 1, (box.z0 + box.z1) / 2, l)
+      self._d.drawWE(ord('-'), box.x0 + 1, (box.z0 + box.z1) / 2, l)
     elif branchDirection == EAST:
-      self._d.drawWE('-', (box.x0 + box.x1) / 2 + 1, (box.z0 + box.z1) / 2, l)
+      self._d.drawWE(ord('-'), (box.x0 + box.x1) / 2 + 1, (box.z0 + box.z1) / 2, l)
     elif branchDirection == NORTH:
-      self._d.drawNS('|', (box.x0 + box.x1) / 2, box.z0 + 1, l)
+      self._d.drawNS(ord('|'), (box.x0 + box.x1) / 2, box.z0 + 1, l)
     elif branchDirection == SOUTH:
-      self._d.drawNS('|', (box.x0 + box.x1) / 2, (box.z0 + box.z1) / 2 + 1, l)
+      self._d.drawNS(ord('|'), (box.x0 + box.x1) / 2, (box.z0 + box.z1) / 2 + 1, l)
     else:
       assert False
 
   def placePlot (self, shape, direction):
     box = shape.getBoundingBox()
     if isinstance(shape, RectangularShape):
-      self._d.drawBox('.', shape)
+      self._d.drawBox(ord('.'), shape)
       if direction == WEST:
-        self._d.drawNS('o', box.x1 - 1, (box.z0 + box.z1) / 2 - 1, 3)
+        self._d.drawNS(ord('o'), box.x1 - 1, (box.z0 + box.z1) / 2 - 1, 3)
       elif direction == EAST:
-        self._d.drawNS('o', box.x0, (box.z0 + box.z1) / 2 - 1, 3)
+        self._d.drawNS(ord('o'), box.x0, (box.z0 + box.z1) / 2 - 1, 3)
       elif direction == NORTH:
-        self._d.drawWE('o', (box.x0 + box.x1) / 2 - 1, box.z1 - 1, 3)
+        self._d.drawWE(ord('o'), (box.x0 + box.x1) / 2 - 1, box.z1 - 1, 3)
       elif direction == SOUTH:
-        self._d.drawWE('o', (box.x0 + box.x1) / 2 - 1, box.z0, 3)
+        self._d.drawWE(ord('o'), (box.x0 + box.x1) / 2 - 1, box.z0, 3)
     else:
       shape = ArbitraryShape(BitmapWorld.getArbitraryShapeOutline(shape), box.x0, box.z0)
-      self._d.drawShape('.', shape)
+      self._d.drawShape(ord('.'), shape)
       if direction in (WEST, EAST):
         z0 = (box.z0 + box.z1) / 2  - 1
         z1 = z0 + 3
@@ -1467,10 +1467,10 @@ class BitmapWorld (World):
         else:
           z0 = box.z0
           z1 = zMid
-      self._d.drawShape('o', shape, RectangularShape(x0, z0, x1, z1))
+      self._d.drawShape(ord('o'), shape, RectangularShape(x0, z0, x1, z1))
 
   def placeMarker (self, x, z):
-    self._d.drawWE('X', x, z, 1)
+    self._d.drawWE(ord('X'), x, z, 1)
 
   def getXpm (self):
     d = self._d

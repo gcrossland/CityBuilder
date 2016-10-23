@@ -15,5 +15,5 @@ def T (pathName):
   world = BitmapWorld(c._tileShapeSet._boundary)
   c.place(world)
   for shape in boundaryExclusions:
-    world._d.drawBox('X', shape)
+    world._d.drawBox(ord('X'), shape)
   t("{}", world.getXpm())

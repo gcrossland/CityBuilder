@@ -107,10 +107,10 @@ def T ():
         x1 = shape.getBoundingBox().x0 + 2
         z1 = shape.getBoundingBox().z0 + 2
         cStr = "{0:0>2d}".format(c)
-        world._d.drawPel(cStr[0], x1, z1)
-        world._d.drawPel(cStr[1], x1 + 1, z1)
-        world._d.drawPel('g', x1, z1 + 1)
-        world._d.drawPel(str(generation), x1, z1 + 1)
+        world._d.drawPel(ord(cStr[0]), x1, z1)
+        world._d.drawPel(ord(cStr[1]), x1 + 1, z1)
+        world._d.drawPel(ord('g'), x1, z1 + 1)
+        world._d.drawPel(ord(str(generation)), x1, z1 + 1)
         c += 1
 
     t("{}", world.getXpm())
