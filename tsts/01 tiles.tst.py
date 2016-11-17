@@ -1,4 +1,6 @@
-from citybuilder import Road, StraightRoadTile, BendingStraightRoadTile, TJunctionRoadTile, NORTH, SOUTH, EAST, WEST, LEFT, RIGHT, RectangularShape, BitmapWorld, City
+from citybuilder import Direction, Reldirection, Road, StraightRoadTile, BendingStraightRoadTile, TJunctionRoadTile, RectangularShape, BitmapWorld, City
+WEST, EAST, NORTH, SOUTH = Direction.WEST, Direction.EAST, Direction.NORTH, Direction.SOUTH
+LEFT, RIGHT = Reldirection.LEFT, Reldirection.RIGHT
 
 def T ():
   x = 75

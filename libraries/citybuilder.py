@@ -3,6 +3,7 @@
 #  City Building Library
 #  © Geoff Crossland 2016
 # ------------------------------------------------------------------------------
+import new
 import itertools
 import math
 
@@ -385,6 +386,54 @@ class ShapeSet (object):
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
+class Enum (object):
+  _Member = int
+  if __debug__:
+    class _Member (object):
+      def __init__ (self, i):
+        self._i = i
+
+      def __int__ (self):
+        return self._i
+
+  def __init__ (self, *args):
+    all = [None] * len(args)
+    for i in xrange(0, len(args)):
+      self.__dict__[args[i]] = all[i] = Enum._Member(i)
+    self.all = tuple(all)
+
+  def map (self, **kwargs):
+    r = [None] * len(self.all)
+    maxI = -1
+    for k, v in kwargs.iteritems():
+      i = self.__dict__.get(k)
+      r[i] = v
+      maxI = max2(maxI, i)
+    return tuple(itertools.islice(r, 0, maxI + 1))
+  if __debug__:
+    def map (self, **kwargs):
+      r = {}
+      for k, v in kwargs.iteritems():
+        i = self.__dict__.get(k, None)
+        assert i in self.all
+        r[i] = v
+      return r
+
+Direction = Enum('EAST', 'SOUTH', 'WEST', 'NORTH')
+Direction.cardinalLinesDs = new.instancemethod(lambda self, s: self.map(WEST = (-s, 0), EAST = (s, 0), NORTH = (0, -s), SOUTH = (0, s)), Direction, Enum)
+WEST, EAST, NORTH, SOUTH = Direction.WEST, Direction.EAST, Direction.NORTH, Direction.SOUTH
+
+Reldirection = Enum('LEFT', 'RIGHT')
+Reldirection.swapped = new.instancemethod(lambda self, m: Reldirection.map(LEFT = m[RIGHT], RIGHT = m[LEFT]), Reldirection, Enum)
+LEFT, RIGHT = Reldirection.LEFT, Reldirection.RIGHT
+
+DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION = Direction.map(
+  WEST = Reldirection.map(LEFT = SOUTH, RIGHT = NORTH),
+  EAST = Reldirection.map(LEFT = NORTH, RIGHT = SOUTH),
+  NORTH = Reldirection.map(LEFT = WEST, RIGHT = EAST),
+  SOUTH = Reldirection.map(LEFT = EAST, RIGHT = WEST)
+)
+
 class World (object):
   def placeStraightRoadTile (self, shape, direction):
     raise NotImplementedError
@@ -397,19 +446,6 @@ class World (object):
 
   def placeMarker (self, x, z):
     raise NotImplementedError
-
-WEST = 1 << 1
-EAST = 1 << 0
-NORTH = 1 << 3
-SOUTH = 1 << 2
-NORTH_WEST = WEST | NORTH
-NORTH_EAST = EAST | NORTH
-SOUTH_WEST = WEST | SOUTH
-SOUTH_EAST = EAST | SOUTH
-
-LEFT = 0
-RIGHT = 1
-RELDIRECTIONS_TO_DIRECTIONS = {WEST: (SOUTH, NORTH), EAST: (NORTH, SOUTH), NORTH: (WEST, EAST), SOUTH: (EAST, WEST)}
 
 class Road (object):
   def __init__ (self):
@@ -487,7 +523,6 @@ class RoadTile (Tile):
 
   def _addNextPlotShape (self, shapes, reldirection, shapeSet):
     assert shapes in (self._leftPlotShapes, self._rightPlotShapes)
-    assert reldirection in (LEFT, RIGHT)
 
     shape = self._getNextPlotShape(shapes, reldirection)
     if shape is None:
@@ -543,20 +578,27 @@ class RoadTile (Tile):
   def branchise (self, branchReldirection, shapeSet):
     return None
 
+  def _placePlots (self, world):
+    for shapes, reldirection in itertools.izip((self._leftPlotShapes, self._rightPlotShapes), (LEFT, RIGHT)):
+      direction = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()][reldirection]
+      for shape in shapes:
+        if shape is not None:
+          world.placePlot(shape, direction)
+
 class StraightRoadTile (RoadTile):
   LEN = 11
-  NEXT_DS = {WEST: (-LEN, 0), EAST: (LEN, 0), NORTH: (0, -LEN), SOUTH: (0, LEN)}
+  NEXT_DS = Direction.cardinalLinesDs(LEN)
   HLEN = (LEN - 1) / 2
-  TILE_ORIGIN_DS = {WEST: (-LEN + 1, -HLEN), EAST: (0, -HLEN), NORTH: (-HLEN, -LEN + 1), SOUTH: (-HLEN, 0)}
+  TILE_ORIGIN_DS = Direction.map(WEST = (-LEN + 1, -HLEN), EAST = (0, -HLEN), NORTH = (-HLEN, -LEN + 1), SOUTH = (-HLEN, 0))
 
   def __init__ (self, direction, x, z):
-    assert direction in (WEST, EAST, NORTH, SOUTH)
     assert isinstance(x, int)
     assert isinstance(z, int)
 
     dX, dZ = StraightRoadTile.NEXT_DS[direction]
     nextX = x + dX
     nextZ = z + dZ
+
     dX, dZ = StraightRoadTile.TILE_ORIGIN_DS[direction]
     x0 = x + dX
     z0 = z + dZ
@@ -568,22 +610,17 @@ class StraightRoadTile (RoadTile):
     return self.getDirection()
 
   PLOT_DEPTH = 7
-  PLOT_NEXT_DS = {WEST: (-PLOT_DEPTH, 0), EAST: (PLOT_DEPTH, 0), NORTH: (0, -PLOT_DEPTH), SOUTH: (0, PLOT_DEPTH)}
+  PLOT_NEXT_DS = Direction.cardinalLinesDs(PLOT_DEPTH)
 
   WEST_LEFT = RectangularShape(0, LEN, LEN, LEN + PLOT_DEPTH)
   WEST_RIGHT = RectangularShape(0, -PLOT_DEPTH, LEN, 0)
-  W = (WEST_LEFT, WEST_RIGHT)
-  E = tuple(reversed(W))
+  W = Reldirection.map(LEFT = WEST_LEFT, RIGHT = WEST_RIGHT)
+  E = Reldirection.swapped(W)
   NORTH_LEFT = RectangularShape(-PLOT_DEPTH, 0, 0, LEN)
   NORTH_RIGHT = RectangularShape(LEN, 0, LEN + PLOT_DEPTH, LEN)
-  N = (NORTH_LEFT, NORTH_RIGHT)
-  S = tuple(reversed(N))
-  PLOT_SHAPES = {
-    WEST: W,
-    EAST: E,
-    NORTH: N,
-    SOUTH: S
-  }
+  N = Reldirection.map(LEFT = NORTH_LEFT, RIGHT = NORTH_RIGHT)
+  S = Reldirection.swapped(N)
+  PLOT_SHAPES = Direction.map(WEST = W, EAST = E, NORTH = N, SOUTH = S)
 
   def _getNextPlotShape (self, shapes, reldirection):
     if len(shapes) == 0:
@@ -593,7 +630,7 @@ class StraightRoadTile (RoadTile):
       parentShape = shapes[-1]
       if parentShape is None:
         return None
-      plotDirection = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
+      plotDirection = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()][reldirection]
       dX, dZ = StraightRoadTile.PLOT_NEXT_DS[plotDirection]
       return parentShape.getTranslation(dX, dZ)
 
@@ -631,19 +668,15 @@ class StraightRoadTile (RoadTile):
 
   def place (self, world):
     world.placeStraightRoadTile(self.getShape(), self.getDirection())
-    for shapes, reldirection in itertools.izip((self._leftPlotShapes, self._rightPlotShapes), (LEFT, RIGHT)):
-      direction = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
-      for shape in shapes:
-        if shape is not None:
-          world.placePlot(shape, direction)
+    self._placePlots(world)
 
 class BendingStraightRoadTile (RoadTile):
   LEN = StraightRoadTile.LEN
   NEXT_DS = StraightRoadTile.NEXT_DS
-  HLEN = StraightRoadTile.HLEN
+  NEXT_OFF_DS = Direction.cardinalLinesDs(2)
   TILE_ORIGIN_DS = StraightRoadTile.TILE_ORIGIN_DS
   OFF = 2
-  OFF_DS = {WEST: (-OFF, 0), EAST: (OFF, 0), NORTH: (0, -OFF), SOUTH: (0, OFF)}
+  TILE_ORIGIN_OFF_DS = Direction.map(WEST = (-OFF, 0), EAST = (0, 0), NORTH = (0, -OFF), SOUTH = (0, 0))
 
   WEST_LEFT = ArbitraryShape.Template(ArbitraryShape.Template.rows(
     "      *****",
@@ -662,38 +695,27 @@ class BendingStraightRoadTile (RoadTile):
   ))
   assert WEST_LEFT._getDX() == LEN
   assert WEST_LEFT._getDZ() == LEN + OFF
-  WE = (WEST_LEFT, WEST_LEFT.getReflectionAroundXAxis())
+  WE = Reldirection.map(LEFT = WEST_LEFT, RIGHT = WEST_LEFT.getReflectionAroundXAxis())
   NORTH_LEFT = WEST_LEFT.getClockwiseQuarterRotation()
-  NS = (NORTH_LEFT, NORTH_LEFT.getReflectionAroundZAxis())
-  TEMPLATES = {
-    WEST: WE,
-    EAST: WE,
-    NORTH: NS,
-    SOUTH: NS
-  }
+  NS = Reldirection.map(LEFT = NORTH_LEFT, RIGHT = NORTH_LEFT.getReflectionAroundZAxis())
+  TEMPLATES = Direction.map(WEST = WE, EAST = WE, NORTH = NS, SOUTH = NS)
 
   def __init__ (self, direction, x, z, bendReldirection):
-    assert direction in (WEST, EAST, NORTH, SOUTH)
-    assert bendReldirection in (LEFT, RIGHT)
     assert isinstance(x, int)
     assert isinstance(z, int)
+    bendDirection = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[direction][bendReldirection]
 
     dX, dZ = BendingStraightRoadTile.NEXT_DS[direction]
     nextX = x + dX
     nextZ = z + dZ
-    dX, dZ = BendingStraightRoadTile.OFF_DS[RELDIRECTIONS_TO_DIRECTIONS[direction][bendReldirection]]
+    dX, dZ = BendingStraightRoadTile.NEXT_OFF_DS[bendDirection]
     nextX += dX
     nextZ += dZ
 
     dX, dZ = BendingStraightRoadTile.TILE_ORIGIN_DS[direction]
     x0 = x + dX
     z0 = z + dZ
-    dX, dZ = BendingStraightRoadTile.OFF_DS[RELDIRECTIONS_TO_DIRECTIONS[direction][bendReldirection]]
-    assert all(abs(d) in (0, BendingStraightRoadTile.OFF) for d in (dX, dZ))
-    if dX == BendingStraightRoadTile.OFF:
-      dX = 0
-    if dZ == BendingStraightRoadTile.OFF:
-      dZ = 0
+    dX, dZ = BendingStraightRoadTile.TILE_ORIGIN_OFF_DS[bendDirection]
     x0 += dX
     z0 += dZ
     shape = ArbitraryShape(BendingStraightRoadTile.TEMPLATES[direction][bendReldirection], x0, z0)
@@ -724,20 +746,27 @@ class BendingStraightRoadTile (RoadTile):
   WEST_LEFT_RIGHT = ArbitraryShape(WEST_LEFT_LEFT._t.getClockwiseQuarterRotation().getClockwiseQuarterRotation(), 0, -PLOT_DEPTH)
   WEST_RIGHT_LEFT = ArbitraryShape(WEST_LEFT_RIGHT._t.getReflectionAroundXAxis(), 0, LEN)
   WEST_RIGHT_RIGHT = ArbitraryShape(WEST_LEFT_LEFT._t.getReflectionAroundXAxis(), 0, -PLOT_DEPTH)
-  W = ((WEST_LEFT_LEFT, WEST_LEFT_RIGHT), (WEST_RIGHT_LEFT, WEST_RIGHT_RIGHT))
-  E = (tuple(reversed(W[LEFT])), tuple(reversed(W[RIGHT])))
+  W = Reldirection.map(
+    LEFT = Reldirection.map(LEFT = WEST_LEFT_LEFT, RIGHT = WEST_LEFT_RIGHT),
+    RIGHT = Reldirection.map(LEFT = WEST_RIGHT_LEFT, RIGHT = WEST_RIGHT_RIGHT)
+  )
+  E = Reldirection.map(
+    LEFT = Reldirection.swapped(W[LEFT]),
+    RIGHT = Reldirection.swapped(W[RIGHT]) 
+  )
   NORTH_LEFT_LEFT = ArbitraryShape(WEST_LEFT_LEFT._t.getClockwiseQuarterRotation(), -PLOT_DEPTH, 0)
   NORTH_LEFT_RIGHT = ArbitraryShape(NORTH_LEFT_LEFT._t.getClockwiseQuarterRotation().getClockwiseQuarterRotation(), LEN, 0)
   NORTH_RIGHT_LEFT = ArbitraryShape(NORTH_LEFT_RIGHT._t.getReflectionAroundZAxis(), -PLOT_DEPTH, 0)
   NORTH_RIGHT_RIGHT = ArbitraryShape(NORTH_LEFT_LEFT._t.getReflectionAroundZAxis(), LEN, 0)
-  N = ((NORTH_LEFT_LEFT, NORTH_LEFT_RIGHT), (NORTH_RIGHT_LEFT, NORTH_RIGHT_RIGHT))
-  S = (tuple(reversed(N[LEFT])), tuple(reversed(N[RIGHT])))
-  PLOT_SHAPES = {
-    WEST: W,
-    EAST: E,
-    NORTH: N,
-    SOUTH: S
-  }
+  N = Reldirection.map(
+    LEFT = Reldirection.map(LEFT = NORTH_LEFT_LEFT, RIGHT = NORTH_LEFT_RIGHT),
+    RIGHT = Reldirection.map(LEFT = NORTH_RIGHT_LEFT, RIGHT = NORTH_RIGHT_RIGHT)
+  )
+  S = Reldirection.map(
+    LEFT = Reldirection.swapped(N[LEFT]),
+    RIGHT = Reldirection.swapped(N[RIGHT]) 
+  )
+  PLOT_SHAPES = Direction.map(WEST = W, EAST = E, NORTH = N, SOUTH = S)
 
   def _getNextPlotShape (self, shapes, reldirection):
     if len(shapes) == 0:
@@ -747,7 +776,7 @@ class BendingStraightRoadTile (RoadTile):
       parentShape = shapes[-1]
       if parentShape is None:
         return None
-      plotDirection = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
+      plotDirection = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()][reldirection]
       dX, dZ = BendingStraightRoadTile.PLOT_NEXT_DS[plotDirection]
       return parentShape.getTranslation(dX, dZ)
 
@@ -768,11 +797,7 @@ class BendingStraightRoadTile (RoadTile):
 
   def place (self, world):
     world.placeBendingStraightRoadTile(self.getShape(), self.getDirection())
-    for shapes, reldirection in itertools.izip((self._leftPlotShapes, self._rightPlotShapes), (LEFT, RIGHT)):
-      direction = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
-      for shape in shapes:
-        if shape is not None:
-          world.placePlot(shape, direction)
+    self._placePlots(world)
 
 class BranchBaseRoadTile (RoadTile):
   def __init__ (self, branchReldirection, branchX, branchZ):
@@ -785,7 +810,7 @@ class BranchBaseRoadTile (RoadTile):
     return self._branchReldirection
 
   def getBranchDirection (self):
-    return RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][self._branchReldirection]
+    return DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()][self._branchReldirection]
 
   def getBranchX (self):
     return self._branchX
@@ -806,12 +831,11 @@ class BranchBaseRoadTile (RoadTile):
 
 class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
   def __init__ (self, direction, x, z, branchReldirection):
-    assert branchReldirection in (LEFT, RIGHT)
     StraightRoadTile.__init__(self, direction, x, z)
 
     box = self.getShape()
     assert isinstance(box, RectangularShape)
-    branchDirection = RELDIRECTIONS_TO_DIRECTIONS[direction][branchReldirection]
+    branchDirection = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[direction][branchReldirection]
     if branchDirection == WEST:
       branchX = box.x0 - 1
       branchZ = box.z0 + StraightRoadTile.HLEN
@@ -827,13 +851,18 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
 
     BranchBaseRoadTile.__init__(self, branchReldirection, branchX, branchZ)
 
+  def _getPlotShapes (self):
+    if self.getBranchReldirection() == LEFT:
+      return self._leftPlotShapes
+    return self._rightPlotShapes
+
   @staticmethod
   def create (direction, x, z, branchReldirection, shapeSet):
     tile = TJunctionRoadTile(direction, x, z, branchReldirection)
     if not shapeSet.addIfNotIntersecting(tile.getShape()):
       return None
 
-    (tile._leftPlotShapes, tile._rightPlotShapes)[tile.getBranchReldirection()].append(None)
+    tile._getPlotShapes().append(None)
     if not tile._addMinimalPlotShapes(1, shapeSet):
       shapeSet.discardContained(tile.getShape())
       return None
@@ -842,19 +871,15 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
 
   def reminimalisePlotShapes (self):
     StraightRoadTile.reminimalisePlotShapes(self)
-    assert len((self._leftPlotShapes, self._rightPlotShapes)[self.getBranchReldirection()]) == 0
-    (self._leftPlotShapes, self._rightPlotShapes)[self.getBranchReldirection()].append(None)
+    assert len(self._getPlotShapes()) == 0
+    self._getPlotShapes().append(None)
 
   def branchise (self, branchReldirection, shapeSet):
     return None
 
   def place (self, world):
     world.placeTJunctionRoadTile(self.getShape(), self.getDirection(), self.getBranchDirection())
-    for shapes, reldirection in itertools.izip((self._leftPlotShapes, self._rightPlotShapes), (LEFT, RIGHT)):
-      direction = RELDIRECTIONS_TO_DIRECTIONS[self.getDirection()][reldirection]
-      for shape in shapes:
-        if shape is not None:
-          world.placePlot(shape, direction)
+    self._placePlots(world)
     self.getBranchRoad().place(world)
 
 class PlotTile (Tile):
@@ -909,8 +934,8 @@ class City (object):
 
     self._buildSecondaryMainRoads(endpoints, primaryDirection, rng)
 
-  OPPOSITE_DIRECTIONS = {WEST: EAST, EAST: WEST, NORTH: SOUTH, SOUTH: NORTH}
-  D_XZ = {WEST: (-1, 0), EAST: (1, 0), NORTH: (0, -1), SOUTH: (0, 1)}
+  OPPOSITE_DIRECTIONS = Direction.map(WEST = EAST, EAST = WEST, NORTH = SOUTH, SOUTH = NORTH)
+  DS = Direction.cardinalLinesDs(1)
 
   def _buildPrimaryMainRoads (self, endpoints, rng):
     assert self._primaryMainRoads is None
@@ -925,7 +950,7 @@ class City (object):
     self._buildMainRoad(self._primaryMainRoads[0], primaryDirection, self._centreX, self._centreZ, x, z, rng)
 
     oppositeDirection = City.OPPOSITE_DIRECTIONS[primaryDirection]
-    dX, dZ = City.D_XZ[oppositeDirection]
+    dX, dZ = City.DS[oppositeDirection]
 
     if primaryEndpoint1I is None:
       tile = StraightRoadTile.create(oppositeDirection, self._centreX + dX, self._centreZ + dZ, self._tileShapeSet)
@@ -1170,6 +1195,7 @@ class City (object):
 
   _INIT_BRANCHISING_STATE = (0, 0.0)
   _GAP = 3
+  _RANG_BY_RELDIRECTION = Reldirection.map(LEFT = -1, RIGHT = 1)
 
   def constantTargetRangFactory (self, initialRang):
     return lambda road, tileI: initialRang
@@ -1199,15 +1225,15 @@ class City (object):
         i += 1
 
       tiles = road.getTiles()
-      reldirectionBranchTiles = (
-        [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == LEFT for t in tiles],
-        [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == RIGHT for t in tiles]
+      reldirectionBranchTiles = Reldirection.map(
+        LEFT = [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == LEFT for t in tiles],
+        RIGHT = [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == RIGHT for t in tiles]
       )
       while i < len(tiles) - City._GAP:
         tile = tiles[i]
         branchProb += rng(branchChoices)
         if branchProb >= 1:
-          reldirection = rng((LEFT, RIGHT))
+          reldirection = rng(Reldirection.all)
           if not any(itertools.islice(reldirectionBranchTiles[reldirection], i - City._GAP, i + City._GAP + 1)):
             tile0 = tile.branchise(reldirection, self._tileShapeSet)
             if tile0 is not None:
@@ -1219,7 +1245,7 @@ class City (object):
               branchTiles = branchRoad.getTiles()
               assert len(branchTiles) != 0
               self._maxGeneration = max(self._maxGeneration, generation + 1)
-              branchRoad.init(targetRangFactory((road.getTargetRang(i) + (-1, 1)[reldirection]) % 4), City._INIT_BRANCHISING_STATE)
+              branchRoad.init(targetRangFactory((road.getTargetRang(i) + City._RANG_BY_RELDIRECTION[reldirection]) % 4), City._INIT_BRANCHISING_STATE)
               self._extendRoad(branchRoad, branchTiles[-1].getNextDirection(), branchTiles[-1].getNextX(), branchTiles[-1].getNextZ(), max(0, rng(lengthChoices) - len(branchTiles)), rng)
         i += 1
 
