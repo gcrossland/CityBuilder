@@ -419,19 +419,25 @@ class Enum (object):
         r[i] = v
       return r
 
-Direction = Enum('EAST', 'SOUTH', 'WEST', 'NORTH')
+Direction = Enum('EAST', 'SOUTH', 'WEST', 'NORTH', 'SOUTH_EAST', 'SOUTH_WEST', 'NORTH_WEST', 'NORTH_EAST')
 Direction.cardinalLinesDs = new.instancemethod(lambda self, s: self.map(WEST = (-s, 0), EAST = (s, 0), NORTH = (0, -s), SOUTH = (0, s)), Direction, Enum)
+Direction.intercardinalLinesDs = new.instancemethod(lambda self, s: self.map(SOUTH_WEST = (-s, s), NORTH_EAST = (s, -s), NORTH_WEST = (-s, -s), SOUTH_EAST = (s, s)), Direction, Enum)
 WEST, EAST, NORTH, SOUTH = Direction.WEST, Direction.EAST, Direction.NORTH, Direction.SOUTH
+SOUTH_EAST, SOUTH_WEST, NORTH_WEST, NORTH_EAST = Direction.SOUTH_EAST, Direction.SOUTH_WEST, Direction.NORTH_WEST, Direction.NORTH_EAST
 
 Reldirection = Enum('LEFT', 'RIGHT')
 Reldirection.swapped = new.instancemethod(lambda self, m: Reldirection.map(LEFT = m[RIGHT], RIGHT = m[LEFT]), Reldirection, Enum)
 LEFT, RIGHT = Reldirection.LEFT, Reldirection.RIGHT
 
 DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION = Direction.map(
-  WEST = Reldirection.map(LEFT = SOUTH, RIGHT = NORTH),
   EAST = Reldirection.map(LEFT = NORTH, RIGHT = SOUTH),
+  SOUTH = Reldirection.map(LEFT = EAST, RIGHT = WEST),
+  WEST = Reldirection.map(LEFT = SOUTH, RIGHT = NORTH),
   NORTH = Reldirection.map(LEFT = WEST, RIGHT = EAST),
-  SOUTH = Reldirection.map(LEFT = EAST, RIGHT = WEST)
+  SOUTH_EAST = Reldirection.map(LEFT = NORTH_EAST, RIGHT = SOUTH_WEST),
+  SOUTH_WEST = Reldirection.map(LEFT = SOUTH_EAST, RIGHT = NORTH_WEST),
+  NORTH_WEST = Reldirection.map(LEFT = SOUTH_WEST, RIGHT = NORTH_EAST),
+  NORTH_EAST = Reldirection.map(LEFT = NORTH_WEST, RIGHT = SOUTH_EAST)
 )
 
 class World (object):
@@ -439,6 +445,12 @@ class World (object):
     raise NotImplementedError
 
   def placeBendingStraightRoadTile (self, shape, direction):
+    raise NotImplementedError
+
+  def placeStraightToDiagonalRoadTile (self, shape, direction):
+    raise NotImplementedError
+
+  def placeDiagonalToStraightRoadTile (self, shape, direction):
     raise NotImplementedError
 
   def placeTJunctionRoadTile (self, shape, direction, branchDirection):
@@ -673,7 +685,7 @@ class StraightRoadTile (RoadTile):
     return tile
 
   def place (self, world):
-    world.placeStraightRoadTile(self.getShape(), self.getDirection())
+    world.placeStraightRoadTile(self.getShape(), self.getNextDirection())
     self._placePlots(world)
 
 class BendingStraightRoadTile (RoadTile):
@@ -782,7 +794,166 @@ class BendingStraightRoadTile (RoadTile):
     return None
 
   def place (self, world):
-    world.placeBendingStraightRoadTile(self.getShape(), self.getDirection())
+    world.placeBendingStraightRoadTile(self.getShape(), self.getNextDirection())
+    self._placePlots(world)
+
+class StraightToDiagonalRoadTile (RoadTile):
+  TILE_ORIGIN_DS = Direction.map(WEST = (-11, -5), EAST = (0, -5), NORTH = (-5, -11), SOUTH = (-5, 0))
+  OFF = 2
+  TILE_ORIGIN_OFF_DS = Direction.map(WEST = (-OFF, 0), EAST = (0, 0), NORTH = (0, -OFF), SOUTH = (0, 0))
+  NEXT_DS = Direction.cardinalLinesDs(8)
+  NEXT_OFF_DS = Direction.cardinalLinesDs(4)
+
+  WEST_LEFT = ArbitraryShape.Template(ArbitraryShape.Template.rows(
+    "     *******",
+    "    ********",
+    "   *********",
+    "  **********",
+    " *****XXXXXX",
+    "*****XX*****",
+    " ***XX*XXXXX",
+    "  *XX*XX****",
+    "   X*XX*****",
+    "    XX******",
+    "     *******",
+    "      ***   ",
+    "       *    "
+  ))
+  W = Reldirection.map(LEFT = WEST_LEFT, RIGHT = WEST_LEFT.getReflectionAroundXAxis())
+  EAST_LEFT = WEST_LEFT.getClockwiseQuarterRotation().getClockwiseQuarterRotation()
+  E = Reldirection.map(LEFT = EAST_LEFT, RIGHT = EAST_LEFT.getReflectionAroundXAxis())
+  NORTH_LEFT = WEST_LEFT.getClockwiseQuarterRotation()
+  N = Reldirection.map(LEFT = NORTH_LEFT, RIGHT = NORTH_LEFT.getReflectionAroundZAxis())
+  SOUTH_LEFT = NORTH_LEFT.getClockwiseQuarterRotation().getClockwiseQuarterRotation()
+  S = Reldirection.map(LEFT = SOUTH_LEFT, RIGHT = SOUTH_LEFT.getReflectionAroundZAxis())
+  TEMPLATES = Direction.map(WEST = W, EAST = E, NORTH = N, SOUTH = S)
+
+  def __init__ (self, direction, x, z, bendReldirection):
+    bendDirection = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[direction][bendReldirection]
+
+    x0, z0 = dsAdd(x, z, StraightToDiagonalRoadTile.TILE_ORIGIN_DS[direction], StraightToDiagonalRoadTile.TILE_ORIGIN_OFF_DS[bendDirection])
+    shape = ArbitraryShape(StraightToDiagonalRoadTile.TEMPLATES[direction][bendReldirection], x0, z0)
+
+    nextX, nextZ = dsAdd(x, z, StraightToDiagonalRoadTile.NEXT_DS[direction], StraightToDiagonalRoadTile.NEXT_OFF_DS[bendDirection])
+    RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ)
+
+    self._bendReldirection = bendReldirection
+
+  NEXT_DIRECTION = Direction.map(
+    WEST = Reldirection.map(LEFT = SOUTH_WEST, RIGHT = NORTH_WEST),
+    EAST = Reldirection.map(LEFT = NORTH_EAST, RIGHT = SOUTH_EAST),
+    NORTH = Reldirection.map(LEFT = NORTH_WEST, RIGHT = NORTH_EAST),
+    SOUTH = Reldirection.map(LEFT = SOUTH_EAST, RIGHT = SOUTH_WEST)
+  )
+
+  def getNextDirection (self):
+    return StraightToDiagonalRoadTile.NEXT_DIRECTION[self.getDirection()][self._bendReldirection]
+
+  def _getNextPlotShape (self, shapes, reldirection):
+    # TODO this
+    if len(shapes) == 0:
+      shapes.append(None)
+    assert len(shapes) == 1 and shapes[0] is None
+    return None
+
+  @staticmethod
+  def create (direction, x, z, bendReldirection, shapeSet, needsMinimalPlotShapes = True):
+    tile = StraightToDiagonalRoadTile(direction, x, z, bendReldirection)
+    return tile._addMinimalShapes(shapeSet, (0, 0)[needsMinimalPlotShapes])
+
+  def branchise (self, branchReldirection, shapeSet):
+    return None
+
+  def place (self, world):
+    world.placeStraightToDiagonalRoadTile(self.getShape(), self.getNextDirection())
+    self._placePlots(world)
+
+class DiagonalToStraightRoadTile (RoadTile):
+  TILE_ORIGIN_DS = Direction.map(SOUTH_WEST = (-9, -3), NORTH_EAST = (-3, -9), NORTH_WEST = (-9, -9), SOUTH_EAST = (-3, -3))
+  OFF = -1
+  TILE_ORIGIN_OFF_DS = Direction.map(WEST = (-OFF, 0), EAST = (0, 0), NORTH = (0, -OFF), SOUTH = (0, 0))
+  NEXT_DS = Direction.intercardinalLinesDs(4)
+  NEXT_OFF_DS = Direction.cardinalLinesDs(5)
+
+  SOUTH_WEST_LEFT = ArbitraryShape.Template(ArbitraryShape.Template.rows(
+    "     **      ",
+    "    ****     ",
+    "   *****X    ",
+    "  *****XX*   ",
+    " *****XX*XX  ",
+    "*****XX*XX** ",
+    "****XX*XX****",
+    "****X*XX*****",
+    "****X*X***** ",
+    "****X*X****  ",
+    "****X*X****  ",
+    "****X*X****  "
+  ))
+  SOUTH_WEST_RIGHT = ArbitraryShape.Template(ArbitraryShape.Template.rows(
+    "    **      ",
+    "   ****     ",
+    "*******X    ",
+    "******XX*   ",
+    "*****XX*XX  ",
+    "****XX*XX** ",
+    "XXXXX*XX****",
+    "*****XX*****",
+    "XXXXXX***** ",
+    "**********  ",
+    "*********   ",
+    "********    ",
+    "*******     "
+  ))
+  S_W = Reldirection.map(LEFT = SOUTH_WEST_LEFT, RIGHT = SOUTH_WEST_RIGHT)
+  NORTH_EAST_LEFT = SOUTH_WEST_LEFT.getClockwiseQuarterRotation().getClockwiseQuarterRotation()
+  NORTH_EAST_RIGHT = SOUTH_WEST_RIGHT.getClockwiseQuarterRotation().getClockwiseQuarterRotation()
+  N_E = Reldirection.map(LEFT = NORTH_EAST_LEFT, RIGHT = NORTH_EAST_RIGHT)
+  NORTH_WEST_LEFT = SOUTH_WEST_LEFT.getClockwiseQuarterRotation()
+  NORTH_WEST_RIGHT = SOUTH_WEST_RIGHT.getClockwiseQuarterRotation()
+  N_W = Reldirection.map(LEFT = NORTH_WEST_LEFT, RIGHT = NORTH_WEST_RIGHT)
+  SOUTH_EAST_LEFT = NORTH_WEST_LEFT.getClockwiseQuarterRotation().getClockwiseQuarterRotation()
+  SOUTH_EAST_RIGHT = NORTH_WEST_RIGHT.getClockwiseQuarterRotation().getClockwiseQuarterRotation()
+  S_E = Reldirection.map(LEFT = SOUTH_EAST_LEFT, RIGHT = SOUTH_EAST_RIGHT)
+  TEMPLATES = Direction.map(SOUTH_WEST = S_W, NORTH_EAST = N_E, NORTH_WEST = N_W, SOUTH_EAST = S_E)
+
+  def __init__ (self, direction, x, z, bendReldirection):
+    bendDirection = DiagonalToStraightRoadTile.NEXT_DIRECTION[direction][bendReldirection]
+
+    x0, z0 = dsAdd(x, z, DiagonalToStraightRoadTile.TILE_ORIGIN_DS[direction], DiagonalToStraightRoadTile.TILE_ORIGIN_OFF_DS[bendDirection])
+    shape = ArbitraryShape(DiagonalToStraightRoadTile.TEMPLATES[direction][bendReldirection], x0, z0)
+
+    nextX, nextZ = dsAdd(x, z, DiagonalToStraightRoadTile.NEXT_DS[direction], DiagonalToStraightRoadTile.NEXT_OFF_DS[bendDirection])
+    RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ)
+
+    self._bendReldirection = bendReldirection
+
+  NEXT_DIRECTION = Direction.map(
+    SOUTH_WEST = Reldirection.map(LEFT = SOUTH, RIGHT = WEST),
+    NORTH_EAST = Reldirection.map(LEFT = NORTH, RIGHT = EAST),
+    NORTH_WEST = Reldirection.map(LEFT = WEST, RIGHT = NORTH),
+    SOUTH_EAST = Reldirection.map(LEFT = EAST, RIGHT = SOUTH)
+  )
+
+  def getNextDirection (self):
+    return DiagonalToStraightRoadTile.NEXT_DIRECTION[self.getDirection()][self._bendReldirection]
+
+  def _getNextPlotShape (self, shapes, reldirection):
+    # TODO this
+    if len(shapes) == 0:
+      shapes.append(None)
+    assert len(shapes) == 1 and shapes[0] is None
+    return None
+
+  @staticmethod
+  def create (direction, x, z, bendReldirection, shapeSet, needsMinimalPlotShapes = True):
+    tile = DiagonalToStraightRoadTile(direction, x, z, bendReldirection)
+    return tile._addMinimalShapes(shapeSet, (0, 0)[needsMinimalPlotShapes])
+
+  def branchise (self, branchReldirection, shapeSet):
+    return None
+
+  def place (self, world):
+    world.placeDiagonalToStraightRoadTile(self.getShape(), self.getNextDirection())
     self._placePlots(world)
 
 class BranchBaseRoadTile (RoadTile):
@@ -857,7 +1028,7 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
     return None
 
   def place (self, world):
-    world.placeTJunctionRoadTile(self.getShape(), self.getDirection(), self.getBranchDirection())
+    world.placeTJunctionRoadTile(self.getShape(), self.getNextDirection(), self.getBranchDirection())
     self._placePlots(world)
     self.getBranchRoad().place(world)
 
@@ -876,6 +1047,8 @@ assert rang(-4, 0) == 2
 assert rang(-4, -4) == 2.5
 assert rang(0, -4) == 3
 assert rang(4, -4) == 3.5
+
+RANGS_BY_DIRECTION = Direction.map(EAST = 0, SOUTH_EAST = 0.5, SOUTH = 1, SOUTH_WEST = 1.5, WEST = 2, NORTH_WEST = 2.5, NORTH = 3, NORTH_EAST = 3.5)
 
 class City (object):
   def __init__ (self, centreX, centreZ, boundary, boundaryExclusions, endpoints, rng):
@@ -1054,6 +1227,28 @@ class City (object):
         c = City.DIRECTIONS_AND_CREATORS[i][1]
         return (c, c)
 
+  def cardinal (direction):
+    return Reldirection.map(
+      LEFT = lambda x, z, shapeSet: StraightToDiagonalRoadTile.create(direction, x, z, LEFT, shapeSet),
+      RIGHT = lambda x, z, shapeSet: StraightToDiagonalRoadTile.create(direction, x, z, RIGHT, shapeSet)
+    )
+  def intercardinal (direction):
+    return Reldirection.map(
+      LEFT = lambda x, z, shapeSet: DiagonalToStraightRoadTile.create(direction, x, z, LEFT, shapeSet),
+      RIGHT = lambda x, z, shapeSet: DiagonalToStraightRoadTile.create(direction, x, z, RIGHT, shapeSet)
+    )
+  DIRECTION_CHANGE_CREATORS = Direction.map(
+    EAST = cardinal(EAST),
+    SOUTH = cardinal(SOUTH),
+    WEST = cardinal(WEST),
+    NORTH = cardinal(NORTH),
+    SOUTH_EAST = intercardinal(SOUTH_EAST),
+    SOUTH_WEST = intercardinal(SOUTH_WEST),
+    NORTH_WEST = intercardinal(NORTH_WEST),
+    NORTH_EAST = intercardinal(NORTH_EAST)
+  )
+  del cardinal, intercardinal
+
   def _extendRoad (self, road, direction, x, z, maxTiles, rng):
     assert isinstance(maxTiles, int)
     assert maxTiles == -1 or maxTiles >= 0
@@ -1069,18 +1264,19 @@ class City (object):
       if tc == maxTiles:
         return
 
-      cs = [c for d, c in City._getDirectionAndCreatorPairForRang(targetRang) if d == direction]
-      if len(cs) == 2:
+      dcs = City._getDirectionAndCreatorPairForRang(targetRang)
+      assert len(dcs) in (1, 2)
+      if len(dcs) == 2:
         if (attainedRang - targetRang) % 4 < 2:
-          creators = (cs[0],) * 6 + (cs[1],)
+          dcs = (dcs[0],) * 6 + (dcs[1],)
         else:
-          creators = (cs[1],) * 6 + (cs[0],)
-      elif len(cs) == 1:
-        creators = (cs[0],)
-      else:
-        assert False
+          dcs = (dcs[1],) * 6 + (dcs[0],)
+      rqdDirection, creator = rng(dcs)
+      if rqdDirection != direction:
+        reldirection = (LEFT, RIGHT)[(RANGS_BY_DIRECTION[rqdDirection] - RANGS_BY_DIRECTION[direction]) % 4 < 2]
+        creator = City.DIRECTION_CHANGE_CREATORS[direction][reldirection]
 
-      tile = rng(creators)(x, z, tileShapeSet)
+      tile = creator(x, z, tileShapeSet)
       if tile is None:
         break
       assert tile.getDirection() == direction
@@ -1416,7 +1612,7 @@ class BitmapWorld (World):
       self._d.drawPel(ord('*'), x - 1, z1)
       self._d.drawPel(ord('*'), x + 1, z1)
     else:
-      assert False
+      pass # TODO
 
   _arbitraryShapeTemplateOutlines = {}
 
@@ -1429,11 +1625,20 @@ class BitmapWorld (World):
       BitmapWorld._arbitraryShapeTemplateOutlines[t0] = t1 = t0.getOutline()
     return t1
 
-  def placeBendingStraightRoadTile (self, shape, direction):
+  def _placeArbitraryShapedRoadTile (self, shape, direction):
     box = shape.getBoundingBox()
 
     self._d.drawShape(ord('#'), ArbitraryShape(BitmapWorld.getArbitraryShapeOutline(shape), box.x0, box.z0))
     self._placeRoadTileRoad(box, direction)
+
+  def placeBendingStraightRoadTile (self, shape, direction):
+    self._placeArbitraryShapedRoadTile(shape, direction)
+
+  def placeStraightToDiagonalRoadTile (self, shape, direction):
+    self._placeArbitraryShapedRoadTile(shape, direction)
+
+  def placeDiagonalToStraightRoadTile (self, shape, direction):
+    self._placeArbitraryShapedRoadTile(shape, direction)
 
   def placeTJunctionRoadTile (self, shape, direction, branchDirection):
     box = shape
