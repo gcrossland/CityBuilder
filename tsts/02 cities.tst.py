@@ -15,4 +15,21 @@ def T (pathName):
   c.place(world)
   for shape in boundaryExclusions:
     world._d.drawBox(ord('X'), shape)
+  b = c._tileShapeSet._boundary
+  def pt (x, z):
+    if x >= b.x0 and x < b.x1 and z >= b.z0 and z < b.z1:
+      world.placeMarker(x, z)
+  for x, z in endpoints:
+    pt(x - 1, z - 1)
+    pt(x,     z - 1)
+    pt(x + 1, z - 1)
+    pt(x - 1, z)
+    pt(x + 1, z)
+    pt(x - 1, z + 1)
+    pt(x,     z + 1)
+    pt(x + 1, z + 1)
+    pt(x - 2, z - 2)
+    pt(x + 2, z - 2)
+    pt(x - 2, z + 2)
+    pt(x + 2, z + 2)
   t("{}", world.getXpm())
