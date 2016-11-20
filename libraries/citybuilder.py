@@ -487,6 +487,11 @@ class Tile (object):
 
 class RoadTile (Tile):
   def __init__ (self, direction, x, z, shape, nextX, nextZ):
+    assert isinstance(x, int)
+    assert isinstance(z, int)
+    assert isinstance(shape, Shape)
+    assert isinstance(nextX, int)
+    assert isinstance(nextZ, int)
     self._direction = direction
     self._x = x
     self._z = z
@@ -544,6 +549,16 @@ class RoadTile (Tile):
       return False
     return True
 
+  def _addMinimalShapes (self, shapeSet, minPlotCount):
+    if not shapeSet.addIfNotIntersecting(self._shape):
+      return None
+
+    if not self._addMinimalPlotShapes(minPlotCount, shapeSet):
+      shapeSet.discardContained(self._shape)
+      return None
+
+    return self
+
   def addNextPlotShapes (self, shapeSet):
     l = self._addNextPlotShape(self._leftPlotShapes, LEFT, shapeSet)
     r = self._addNextPlotShape(self._rightPlotShapes, RIGHT, shapeSet)
@@ -585,25 +600,23 @@ class RoadTile (Tile):
         if shape is not None:
           world.placePlot(shape, direction)
 
+def dsAdd (x, z, *args):
+  for dX, dZ in args:
+    x += dX
+    z += dZ
+  return x, z
+
 class StraightRoadTile (RoadTile):
   LEN = 11
-  NEXT_DS = Direction.cardinalLinesDs(LEN)
   HLEN = (LEN - 1) / 2
   TILE_ORIGIN_DS = Direction.map(WEST = (-LEN + 1, -HLEN), EAST = (0, -HLEN), NORTH = (-HLEN, -LEN + 1), SOUTH = (-HLEN, 0))
+  NEXT_DS = Direction.cardinalLinesDs(LEN)
 
   def __init__ (self, direction, x, z):
-    assert isinstance(x, int)
-    assert isinstance(z, int)
-
-    dX, dZ = StraightRoadTile.NEXT_DS[direction]
-    nextX = x + dX
-    nextZ = z + dZ
-
-    dX, dZ = StraightRoadTile.TILE_ORIGIN_DS[direction]
-    x0 = x + dX
-    z0 = z + dZ
+    x0, z0 = dsAdd(x, z, StraightRoadTile.TILE_ORIGIN_DS[direction])
     shape = RectangularShape(x0, z0, x0 + StraightRoadTile.LEN, z0 + StraightRoadTile.LEN)
 
+    nextX, nextZ = dsAdd(x, z, StraightRoadTile.NEXT_DS[direction])
     RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ)
 
   def getNextDirection (self):
@@ -637,14 +650,7 @@ class StraightRoadTile (RoadTile):
   @staticmethod
   def create (direction, x, z, shapeSet, needsMinimalPlotShapes = True):
     tile = StraightRoadTile(direction, x, z)
-    if not shapeSet.addIfNotIntersecting(tile.getShape()):
-      return None
-
-    if not tile._addMinimalPlotShapes((0, 2)[needsMinimalPlotShapes], shapeSet):
-      shapeSet.discardContained(tile.getShape())
-      return None
-
-    return tile
+    return tile._addMinimalShapes(shapeSet, (0, 2)[needsMinimalPlotShapes])
 
   def branchise (self, branchReldirection, shapeSet):
     self.removeShapesFromSet(shapeSet)
@@ -672,11 +678,11 @@ class StraightRoadTile (RoadTile):
 
 class BendingStraightRoadTile (RoadTile):
   LEN = StraightRoadTile.LEN
-  NEXT_DS = StraightRoadTile.NEXT_DS
-  NEXT_OFF_DS = Direction.cardinalLinesDs(2)
   TILE_ORIGIN_DS = StraightRoadTile.TILE_ORIGIN_DS
   OFF = 2
   TILE_ORIGIN_OFF_DS = Direction.map(WEST = (-OFF, 0), EAST = (0, 0), NORTH = (0, -OFF), SOUTH = (0, 0))
+  NEXT_DS = StraightRoadTile.NEXT_DS
+  NEXT_OFF_DS = Direction.cardinalLinesDs(2)
 
   WEST_LEFT = ArbitraryShape.Template(ArbitraryShape.Template.rows(
     "      *****",
@@ -701,25 +707,12 @@ class BendingStraightRoadTile (RoadTile):
   TEMPLATES = Direction.map(WEST = WE, EAST = WE, NORTH = NS, SOUTH = NS)
 
   def __init__ (self, direction, x, z, bendReldirection):
-    assert isinstance(x, int)
-    assert isinstance(z, int)
     bendDirection = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[direction][bendReldirection]
 
-    dX, dZ = BendingStraightRoadTile.NEXT_DS[direction]
-    nextX = x + dX
-    nextZ = z + dZ
-    dX, dZ = BendingStraightRoadTile.NEXT_OFF_DS[bendDirection]
-    nextX += dX
-    nextZ += dZ
-
-    dX, dZ = BendingStraightRoadTile.TILE_ORIGIN_DS[direction]
-    x0 = x + dX
-    z0 = z + dZ
-    dX, dZ = BendingStraightRoadTile.TILE_ORIGIN_OFF_DS[bendDirection]
-    x0 += dX
-    z0 += dZ
+    x0, z0 = dsAdd(x, z, BendingStraightRoadTile.TILE_ORIGIN_DS[direction], BendingStraightRoadTile.TILE_ORIGIN_OFF_DS[bendDirection])
     shape = ArbitraryShape(BendingStraightRoadTile.TEMPLATES[direction][bendReldirection], x0, z0)
 
+    nextX, nextZ = dsAdd(x, z, BendingStraightRoadTile.NEXT_DS[direction], BendingStraightRoadTile.NEXT_OFF_DS[bendDirection])
     RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ)
 
     self._bendReldirection = bendReldirection
@@ -783,14 +776,7 @@ class BendingStraightRoadTile (RoadTile):
   @staticmethod
   def create (direction, x, z, bendReldirection, shapeSet, needsMinimalPlotShapes = True):
     tile = BendingStraightRoadTile(direction, x, z, bendReldirection)
-    if not shapeSet.addIfNotIntersecting(tile.getShape()):
-      return None
-
-    if not tile._addMinimalPlotShapes((0, 2)[needsMinimalPlotShapes], shapeSet):
-      shapeSet.discardContained(tile.getShape())
-      return None
-
-    return tile
+    return tile._addMinimalShapes(shapeSet, (0, 2)[needsMinimalPlotShapes])
 
   def branchise (self, branchReldirection, shapeSet):
     return None
@@ -859,15 +845,8 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
   @staticmethod
   def create (direction, x, z, branchReldirection, shapeSet):
     tile = TJunctionRoadTile(direction, x, z, branchReldirection)
-    if not shapeSet.addIfNotIntersecting(tile.getShape()):
-      return None
-
     tile._getPlotShapes().append(None)
-    if not tile._addMinimalPlotShapes(1, shapeSet):
-      shapeSet.discardContained(tile.getShape())
-      return None
-
-    return tile
+    return tile._addMinimalShapes(shapeSet, 1)
 
   def reminimalisePlotShapes (self):
     StraightRoadTile.reminimalisePlotShapes(self)
