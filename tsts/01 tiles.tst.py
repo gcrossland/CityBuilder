@@ -1,4 +1,4 @@
-from citybuilder import Direction, Reldirection, Road, StraightRoadTile, BendingStraightRoadTile, StraightToDiagonalRoadTile, DiagonalToStraightRoadTile, TJunctionRoadTile, RectangularShape, BitmapWorld, City
+from citybuilder import Direction, Reldirection, Road, StraightRoadTile, BendingStraightRoadTile, DiagonalRoadTile, StraightToDiagonalRoadTile, DiagonalToStraightRoadTile, TJunctionRoadTile, RectangularShape, BitmapWorld, City
 WEST, EAST, NORTH, SOUTH = Direction.WEST, Direction.EAST, Direction.NORTH, Direction.SOUTH
 SOUTH_EAST, SOUTH_WEST, NORTH_WEST, NORTH_EAST = Direction.SOUTH_EAST, Direction.SOUTH_WEST, Direction.NORTH_WEST, Direction.NORTH_EAST
 LEFT, RIGHT = Reldirection.LEFT, Reldirection.RIGHT
@@ -96,15 +96,19 @@ def T ():
   t0 = r.getTiles()
   t0.append(StraightRoadTile(EAST, x, z * 2 / 3))
   t0.append(StraightToDiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), RIGHT))
+  t0.append(DiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(DiagonalToStraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), RIGHT))
   t0.append(StraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(StraightToDiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), RIGHT))
+  t0.append(DiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(DiagonalToStraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), RIGHT))
   t0.append(StraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(StraightToDiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), RIGHT))
+  t0.append(DiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(DiagonalToStraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), RIGHT))
   t0.append(StraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(StraightToDiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), RIGHT))
+  t0.append(DiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(DiagonalToStraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), RIGHT))
   rs.append((r, False))
 
@@ -113,15 +117,19 @@ def T ():
   t0 = r.getTiles()
   t0.append(StraightRoadTile(EAST, x, z * 4 / 3))
   t0.append(StraightToDiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), LEFT))
+  t0.append(DiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(DiagonalToStraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), LEFT))
   t0.append(StraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(StraightToDiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), LEFT))
+  t0.append(DiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(DiagonalToStraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), LEFT))
   t0.append(StraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(StraightToDiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), LEFT))
+  t0.append(DiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(DiagonalToStraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), LEFT))
   t0.append(StraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(StraightToDiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), LEFT))
+  t0.append(DiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(DiagonalToStraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), LEFT))
   rs.append((r, False))
 
