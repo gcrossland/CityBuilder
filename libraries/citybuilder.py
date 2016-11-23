@@ -542,8 +542,21 @@ class RoadTile (Tile):
   def getNextZ (self):
     return self._nextZ
 
-  def _getNextPlotShape (self, shapes, reldirection):
+  def _getFirstPlotShape (self, reldirection):
     raise NotImplementedError
+
+  def _getNextPlotShapeOffset (self, reldirection):
+    raise NotImplementedError
+
+  def _getNextPlotShape (self, shapes, reldirection):
+    if len(shapes) == 0:
+      box = self.getShape().getBoundingBox()
+      return self._getFirstPlotShape(reldirection).getTranslation(box.x0, box.z0)
+    else:
+      parentShape = shapes[-1]
+      if parentShape is None:
+        return None
+      return parentShape.getTranslation(*self._getNextPlotShapeOffset(reldirection))
 
   def _addNextPlotShape (self, shapes, reldirection, shapeSet):
     assert shapes in (self._leftPlotShapes, self._rightPlotShapes)
@@ -629,10 +642,10 @@ class RoadTile (Tile):
   def branchise (self, branchReldirection, shapeSet):
     return None
 
-  def _placePlots (self, world):
+  def _placePlots (self, world, directionsByReldirection):
     for shapes, reldirection in ((self._leftPlotShapes, LEFT), (self._rightPlotShapes, RIGHT)):
       if shapes is not None:
-        direction = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()][reldirection]
+        direction = directionsByReldirection[reldirection]
         for shape in shapes:
           if shape is not None:
             world.placePlot(shape, direction)
@@ -672,17 +685,12 @@ class StraightRoadTile (RoadTile):
   S = Reldirection.swapped(N)
   PLOT_SHAPES = Direction.map(WEST = W, EAST = E, NORTH = N, SOUTH = S)
 
-  def _getNextPlotShape (self, shapes, reldirection):
-    if len(shapes) == 0:
-      box = self.getShape()
-      return StraightRoadTile.PLOT_SHAPES[self.getDirection()][reldirection].getTranslation(box.x0, box.z0)
-    else:
-      parentShape = shapes[-1]
-      if parentShape is None:
-        return None
-      plotDirection = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()][reldirection]
-      dX, dZ = StraightRoadTile.PLOT_NEXT_DS[plotDirection]
-      return parentShape.getTranslation(dX, dZ)
+  def _getFirstPlotShape (self, reldirection):
+    return StraightRoadTile.PLOT_SHAPES[self.getDirection()][reldirection]
+
+  def _getNextPlotShapeOffset (self, reldirection):
+    plotDirection = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()][reldirection]
+    return StraightRoadTile.PLOT_NEXT_DS[plotDirection]
 
   @staticmethod
   def create (direction, x, z, shapeSet, needsMinimalPlotShapes = True):
@@ -711,7 +719,7 @@ class StraightRoadTile (RoadTile):
 
   def place (self, world):
     world.placeStraightRoadTile(self.getShape(), self.getNextDirection())
-    self._placePlots(world)
+    self._placePlots(world, DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()])
 
 class BendingStraightRoadTile (RoadTile):
   LEN = StraightRoadTile.LEN
@@ -798,17 +806,12 @@ class BendingStraightRoadTile (RoadTile):
   )
   PLOT_SHAPES = Direction.map(WEST = W, EAST = E, NORTH = N, SOUTH = S)
 
-  def _getNextPlotShape (self, shapes, reldirection):
-    if len(shapes) == 0:
-      box = self.getShape().getBoundingBox()
-      return BendingStraightRoadTile.PLOT_SHAPES[self.getDirection()][self._bendReldirection][reldirection].getTranslation(box.x0, box.z0)
-    else:
-      parentShape = shapes[-1]
-      if parentShape is None:
-        return None
-      plotDirection = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()][reldirection]
-      dX, dZ = BendingStraightRoadTile.PLOT_NEXT_DS[plotDirection]
-      return parentShape.getTranslation(dX, dZ)
+  def _getFirstPlotShape (self, reldirection):
+    return BendingStraightRoadTile.PLOT_SHAPES[self.getDirection()][self._bendReldirection][reldirection]
+
+  def _getNextPlotShapeOffset (self, reldirection):
+    plotDirection = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()][reldirection]
+    return BendingStraightRoadTile.PLOT_NEXT_DS[plotDirection]
 
   @staticmethod
   def create (direction, x, z, bendReldirection, shapeSet, needsMinimalPlotShapes = True):
@@ -820,7 +823,7 @@ class BendingStraightRoadTile (RoadTile):
 
   def place (self, world):
     world.placeBendingStraightRoadTile(self.getShape(), self.getNextDirection())
-    self._placePlots(world)
+    self._placePlots(world, DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()])
 
 class DiagonalRoadTile (RoadTile):
   TILE_ORIGIN_DS = Direction.map(SOUTH_WEST = (-11, -3), NORTH_EAST = (-3, -11), NORTH_WEST = (-11, -11), SOUTH_EAST = (-3, -3))
@@ -853,14 +856,60 @@ class DiagonalRoadTile (RoadTile):
     shape = ArbitraryShape(DiagonalRoadTile.TEMPLATES[direction], x0, z0)
 
     nextX, nextZ = dsAdd(x, z, DiagonalRoadTile.NEXT_DS[direction])
-    RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ, False, False) # TODO add plots
+    RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ, True, True)
 
   def getNextDirection (self):
     return self.getDirection()
 
-  def _getNextPlotShape (self, shapes, reldirection):
-    # TODO this
-    assert False
+  PLOT_NEXT_DS = Direction.intercardinalLinesDs(5)
+
+  SOUTH_WEST_LEFT = ArbitraryShape(ArbitraryShape.Template(ArbitraryShape.Template.rows(
+    "       %    ",
+    "      %%%   ",
+    "     %%%%%  ",
+    "    %%%%%%% ",
+    "   -%%%%%%%%",
+    "  %%%%%%%%%%",
+    " %%%%%%%%%% ",
+    "%%%%%%%%%%  ",
+    "%%%%%%%%%   ",
+    " %%%%%%%    ",
+    "  %%%%%     ",
+    "   %%%      ",
+    "    %       "
+  )), 5 + 3, 5 + 2)
+  SOUTH_WEST_RIGHT = ArbitraryShape(ArbitraryShape.Template(ArbitraryShape.Template.rows(
+    "       %%    ",
+    "      %%%%   ",
+    "     %%%%%%  ",
+    "    %%%%%%%% ",
+    "   %%%%%%%%%%",
+    "  %%%%%%%%%% ",
+    " %%%%%%%%%%  ",
+    "%%%%%%%%%%   ",
+    " %%%%%%%-    ",
+    "  %%%%%%     ",
+    "   %%%%      ",
+    "    %%       "
+  )), -5, -5)
+  S_W = Reldirection.map(LEFT = SOUTH_WEST_LEFT, RIGHT = SOUTH_WEST_RIGHT)
+  NORTH_EAST_LEFT = ArbitraryShape(SOUTH_WEST_LEFT._t.getClockwiseQuarterRotation().getClockwiseQuarterRotation(), -5, -5)
+  NORTH_EAST_RIGHT = ArbitraryShape(SOUTH_WEST_RIGHT._t.getClockwiseQuarterRotation().getClockwiseQuarterRotation(), 5 + 2, 5 + 3)
+  N_E = Reldirection.map(LEFT = NORTH_EAST_LEFT, RIGHT = NORTH_EAST_RIGHT)
+  NORTH_WEST_LEFT = ArbitraryShape(SOUTH_WEST_LEFT._t.getClockwiseQuarterRotation(), -5, 5 + 3)
+  NORTH_WEST_RIGHT = ArbitraryShape(SOUTH_WEST_RIGHT._t.getClockwiseQuarterRotation(), 5 + 3, -5)
+  N_W = Reldirection.map(LEFT = NORTH_WEST_LEFT, RIGHT = NORTH_WEST_RIGHT)
+  SOUTH_EAST_LEFT = ArbitraryShape(NORTH_WEST_LEFT._t.getClockwiseQuarterRotation().getClockwiseQuarterRotation(), 5 + 2, -5)
+  SOUTH_EAST_RIGHT = ArbitraryShape(NORTH_WEST_RIGHT._t.getClockwiseQuarterRotation().getClockwiseQuarterRotation(), -5, 5 + 2)
+  S_E = Reldirection.map(LEFT = SOUTH_EAST_LEFT, RIGHT = SOUTH_EAST_RIGHT)
+  PLOT_SHAPES = Direction.map(SOUTH_WEST = S_W, NORTH_EAST = N_E, NORTH_WEST = N_W, SOUTH_EAST = S_E)
+
+  def _getFirstPlotShape (self, reldirection):
+    return DiagonalRoadTile.PLOT_SHAPES[self.getDirection()][reldirection]
+
+  def _getNextPlotShapeOffset (self, reldirection):
+    plotDirection = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()][reldirection]
+    return DiagonalRoadTile.PLOT_NEXT_DS[plotDirection]
 
   @staticmethod
   def create (direction, x, z, shapeSet, needsMinimalPlotShapes = True):
@@ -872,7 +921,7 @@ class DiagonalRoadTile (RoadTile):
 
   def place (self, world):
     world.placeDiagonalRoadTile(self.getShape(), self.getNextDirection())
-    self._placePlots(world)
+    self._placePlots(world, DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()])
 
 class StraightToDiagonalRoadTile (RoadTile):
   TILE_ORIGIN_DS = Direction.map(WEST = (-11, -5), EAST = (0, -5), NORTH = (-5, -11), SOUTH = (-5, 0))
@@ -912,7 +961,7 @@ class StraightToDiagonalRoadTile (RoadTile):
     shape = ArbitraryShape(StraightToDiagonalRoadTile.TEMPLATES[direction][bendReldirection], x0, z0)
 
     nextX, nextZ = dsAdd(x, z, StraightToDiagonalRoadTile.NEXT_DS[direction], StraightToDiagonalRoadTile.NEXT_OFF_DS[bendDirection])
-    RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ, False, False) # TODO add plots - bendReldirection != Reldirection.LEFT, bendReldirection != Reldirection.RIGHT)
+    RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ, bendReldirection != Reldirection.LEFT, bendReldirection != Reldirection.RIGHT)
 
     self._bendReldirection = bendReldirection
 
@@ -926,9 +975,21 @@ class StraightToDiagonalRoadTile (RoadTile):
   def getNextDirection (self):
     return StraightToDiagonalRoadTile.NEXT_DIRECTION[self.getDirection()][self._bendReldirection]
 
-  def _getNextPlotShape (self, shapes, reldirection):
-    # TODO this
-    assert False
+  PLOT_NEXT_DS = DiagonalRoadTile.PLOT_NEXT_DS
+
+  S_W = Reldirection.map(LEFT = DiagonalRoadTile.SOUTH_WEST_LEFT.getTranslation(0, -3), RIGHT = DiagonalRoadTile.SOUTH_WEST_RIGHT.getTranslation(0, -2))
+  N_E = Reldirection.map(LEFT = DiagonalRoadTile.NORTH_EAST_LEFT.getTranslation(-2, 0), RIGHT = DiagonalRoadTile.NORTH_EAST_RIGHT.getTranslation(-3, 0))
+  N_W = Reldirection.map(LEFT = DiagonalRoadTile.NORTH_WEST_LEFT.getTranslation(0, 0), RIGHT = DiagonalRoadTile.NORTH_WEST_RIGHT.getTranslation(0, 0))
+  S_E = Reldirection.map(LEFT = DiagonalRoadTile.SOUTH_EAST_LEFT.getTranslation(-3, -2), RIGHT = DiagonalRoadTile.SOUTH_EAST_RIGHT.getTranslation(-2, -3))
+  PLOT_SHAPES = Direction.map(SOUTH_WEST = S_W, NORTH_EAST = N_E, NORTH_WEST = N_W, SOUTH_EAST = S_E)
+
+  def _getFirstPlotShape (self, reldirection):
+    assert reldirection != self._bendReldirection
+    return StraightToDiagonalRoadTile.PLOT_SHAPES[self.getNextDirection()][reldirection]
+
+  def _getNextPlotShapeOffset (self, reldirection):
+    plotDirection = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getNextDirection()][reldirection]
+    return StraightToDiagonalRoadTile.PLOT_NEXT_DS[plotDirection]
 
   @staticmethod
   def create (direction, x, z, bendReldirection, shapeSet, needsMinimalPlotShapes = True):
@@ -940,7 +1001,7 @@ class StraightToDiagonalRoadTile (RoadTile):
 
   def place (self, world):
     world.placeStraightToDiagonalRoadTile(self.getShape(), self.getNextDirection())
-    self._placePlots(world)
+    self._placePlots(world, DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getNextDirection()])
 
 class DiagonalToStraightRoadTile (RoadTile):
   TILE_ORIGIN_DS = Direction.map(SOUTH_WEST = (-9, -3), NORTH_EAST = (-3, -9), NORTH_WEST = (-9, -9), SOUTH_EAST = (-3, -3))
@@ -997,7 +1058,7 @@ class DiagonalToStraightRoadTile (RoadTile):
     shape = ArbitraryShape(DiagonalToStraightRoadTile.TEMPLATES[direction][bendReldirection], x0, z0)
 
     nextX, nextZ = dsAdd(x, z, DiagonalToStraightRoadTile.NEXT_DS[direction], DiagonalToStraightRoadTile.NEXT_OFF_DS[bendDirection])
-    RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ, False, False) # TODO add plots - bendReldirection != Reldirection.LEFT, bendReldirection != Reldirection.RIGHT)
+    RoadTile.__init__(self, direction, x, z, shape, nextX, nextZ, bendReldirection != Reldirection.LEFT, bendReldirection != Reldirection.RIGHT)
 
     self._bendReldirection = bendReldirection
 
@@ -1011,9 +1072,21 @@ class DiagonalToStraightRoadTile (RoadTile):
   def getNextDirection (self):
     return DiagonalToStraightRoadTile.NEXT_DIRECTION[self.getDirection()][self._bendReldirection]
 
-  def _getNextPlotShape (self, shapes, reldirection):
-    # TODO this
-    assert False
+  PLOT_NEXT_DS = DiagonalRoadTile.PLOT_NEXT_DS
+
+  S_W = Reldirection.map(LEFT = DiagonalRoadTile.SOUTH_WEST_LEFT.getTranslation(-3, 0), RIGHT = DiagonalRoadTile.SOUTH_WEST_RIGHT.getTranslation(-2, 0))
+  N_E = Reldirection.map(LEFT = DiagonalRoadTile.NORTH_EAST_LEFT.getTranslation(0, -2), RIGHT = DiagonalRoadTile.NORTH_EAST_RIGHT.getTranslation(0, -3))
+  N_W = Reldirection.map(LEFT = DiagonalRoadTile.NORTH_WEST_LEFT.getTranslation(-2, -3), RIGHT = DiagonalRoadTile.NORTH_WEST_RIGHT.getTranslation(-3, -2))
+  S_E = Reldirection.map(LEFT = DiagonalRoadTile.SOUTH_EAST_LEFT.getTranslation(0, 0), RIGHT = DiagonalRoadTile.SOUTH_EAST_RIGHT.getTranslation(0, 0))
+  PLOT_SHAPES = Direction.map(SOUTH_WEST = S_W, NORTH_EAST = N_E, NORTH_WEST = N_W, SOUTH_EAST = S_E)
+
+  def _getFirstPlotShape (self, reldirection):
+    assert reldirection != self._bendReldirection
+    return DiagonalToStraightRoadTile.PLOT_SHAPES[self.getDirection()][reldirection]
+
+  def _getNextPlotShapeOffset (self, reldirection):
+    plotDirection = DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()][reldirection]
+    return DiagonalToStraightRoadTile.PLOT_NEXT_DS[plotDirection]
 
   @staticmethod
   def create (direction, x, z, bendReldirection, shapeSet, needsMinimalPlotShapes = True):
@@ -1025,7 +1098,7 @@ class DiagonalToStraightRoadTile (RoadTile):
 
   def place (self, world):
     world.placeDiagonalToStraightRoadTile(self.getShape(), self.getNextDirection())
-    self._placePlots(world)
+    self._placePlots(world, DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()])
 
 class BranchBaseRoadTile (RoadTile):
   def __init__ (self, branchReldirection, branchX, branchZ):
@@ -1089,7 +1162,7 @@ class TJunctionRoadTile (StraightRoadTile, BranchBaseRoadTile):
 
   def place (self, world):
     world.placeTJunctionRoadTile(self.getShape(), self.getNextDirection(), self.getBranchDirection())
-    self._placePlots(world)
+    self._placePlots(world, DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()])
     self.getBranchRoad().place(world)
 
 class PlotTile (Tile):
@@ -1740,6 +1813,8 @@ class BitmapWorld (World):
     else:
       shape = ArbitraryShape(BitmapWorld.getArbitraryShapeOutline(shape), box.x0, box.z0)
       self._d.drawShape(ord('.'), shape)
+      if direction in (SOUTH_WEST, SOUTH_EAST, NORTH_WEST, NORTH_EAST):
+        return # TODO
       if direction in (WEST, EAST):
         z0 = (box.z0 + box.z1) / 2  - 1
         z1 = z0 + 3
