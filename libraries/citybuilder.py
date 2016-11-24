@@ -1236,19 +1236,15 @@ class City (object):
 
     oppositeDirection = City.OPPOSITE_DIRECTIONS[primaryDirection]
     dX, dZ = City.DS[oppositeDirection]
-
     if primaryEndpoint1I is None:
-      tile = StraightRoadTile.create(oppositeDirection, self._centreX + dX, self._centreZ + dZ, self._tileShapeSet)
-      if tile is not None:
-        self._primaryMainRoads[1].getTiles().append(tile)
-      self._primaryMainRoads[1].init(self.constantTargetRangFactory(rang(dX, dZ)), City._INIT_BRANCHISING_STATE)
-      return (primaryDirection, (primaryEndpoint0I,))
-
-    x, z = endpoints[primaryEndpoint1I]
-    assert oppositeDirection == endpointDirections[primaryEndpoint1I]
+      x = self._centreX + dX * (StraightRoadTile.LEN + 1)
+      z = self._centreZ + dZ * (StraightRoadTile.LEN + 1)
+    else:
+      x, z = endpoints[primaryEndpoint1I]
+      assert oppositeDirection == endpointDirections[primaryEndpoint1I]
     self._buildMainRoad(self._primaryMainRoads[1], oppositeDirection, self._centreX + dX, self._centreZ + dZ, x, z, rng)
 
-    return (primaryDirection, (primaryEndpoint0I, primaryEndpoint1I))
+    return (primaryDirection, tuple(i for i in (primaryEndpoint0I, primaryEndpoint1I) if i is not None))
 
   @staticmethod
   def _getMainRoadDirection (srcX, srcZ, destX, destZ):
