@@ -10,39 +10,39 @@ def T ():
   rs = []
 
   r = Road()
-  r.init(0, City._INIT_BRANCHISING_STATE)
+  r.init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
   t0 = r.getTiles()
   t0.append(StraightRoadTile(NORTH, x, z))
   t0.append(StraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ()))
   t0.append(TJunctionRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), LEFT))
-  t0[-1].getBranchRoad().init(0, City._INIT_BRANCHISING_STATE)
+  t0[-1].getBranchRoad().init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
   if True:
     t1 = t0[-1].getBranchRoad().getTiles()
     t1.append(StraightRoadTile(t0[-1].getBranchDirection(), t0[-1].getBranchX(), t0[-1].getBranchZ()))
     t1.append(TJunctionRoadTile(t1[-1].getNextDirection(), t1[-1].getNextX(), t1[-1].getNextZ(), RIGHT))
-    t1[-1].getBranchRoad().init(0, City._INIT_BRANCHISING_STATE)
+    t1[-1].getBranchRoad().init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
     if True:
       t2 = t1[-1].getBranchRoad().getTiles()
       t2.append(StraightRoadTile(t1[-1].getBranchDirection(), t1[-1].getBranchX(), t1[-1].getBranchZ()))
     t1.append(StraightRoadTile(t1[-1].getNextDirection(), t1[-1].getNextX(), t1[-1].getNextZ()))
     t1.append(TJunctionRoadTile(t1[-1].getNextDirection(), t1[-1].getNextX(), t1[-1].getNextZ(), LEFT))
-    t1[-1].getBranchRoad().init(0, City._INIT_BRANCHISING_STATE)
+    t1[-1].getBranchRoad().init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
     if True:
       t2 = t1[-1].getBranchRoad().getTiles()
       t2.append(StraightRoadTile(t1[-1].getBranchDirection(), t1[-1].getBranchX(), t1[-1].getBranchZ()))
       t2.append(TJunctionRoadTile(t2[-1].getNextDirection(), t2[-1].getNextX(), t2[-1].getNextZ(), LEFT))
-      t2[-1].getBranchRoad().init(0, City._INIT_BRANCHISING_STATE)
+      t2[-1].getBranchRoad().init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
       if True:
         t3 = t2[-1].getBranchRoad().getTiles()
         t3.append(StraightRoadTile(t2[-1].getBranchDirection(), t2[-1].getBranchX(), t2[-1].getBranchZ()))
   t0.append(TJunctionRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), RIGHT))
-  t0[-1].getBranchRoad().init(0, City._INIT_BRANCHISING_STATE)
+  t0[-1].getBranchRoad().init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
   if True:
     t1 = t0[-1].getBranchRoad().getTiles()
     t1.append(TJunctionRoadTile(t0[-1].getBranchDirection(), t0[-1].getBranchX(), t0[-1].getBranchZ(), LEFT))
-    t1[-1].getBranchRoad().init(0, City._INIT_BRANCHISING_STATE)
+    t1[-1].getBranchRoad().init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
     t1.append(TJunctionRoadTile(t1[-1].getNextDirection(), t1[-1].getNextX(), t1[-1].getNextZ(), RIGHT))
-    t1[-1].getBranchRoad().init(0, City._INIT_BRANCHISING_STATE)
+    t1[-1].getBranchRoad().init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
     if True:
       t2 = t1[-1].getBranchRoad().getTiles()
       t2.append(StraightRoadTile(t1[-1].getBranchDirection(), t1[-1].getBranchX(), t1[-1].getBranchZ()))
@@ -50,12 +50,12 @@ def T ():
       t2.append(StraightRoadTile(t2[-1].getNextDirection(), t2[-1].getNextX(), t2[-1].getNextZ()))
       t2.append(StraightRoadTile(t2[-1].getNextDirection(), t2[-1].getNextX(), t2[-1].getNextZ()))
       t2.append(TJunctionRoadTile(t2[-1].getNextDirection(), t2[-1].getNextX(), t2[-1].getNextZ(), RIGHT))
-      t2[-1].getBranchRoad().init(0, City._INIT_BRANCHISING_STATE)
+      t2[-1].getBranchRoad().init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
     t1.append(StraightRoadTile(t1[-1].getNextDirection(), t1[-1].getNextX(), t1[-1].getNextZ()))
   rs.append((r, True))
 
   r = Road()
-  r.init(0, City._INIT_BRANCHISING_STATE)
+  r.init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
   t0 = r.getTiles()
   t0.append(StraightRoadTile(NORTH, x, z))
   t0.append(BendingStraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), LEFT))
@@ -63,7 +63,7 @@ def T ():
   t0.append(BendingStraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), RIGHT))
   t0.append(BendingStraightRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), LEFT))
   t0.append(TJunctionRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), LEFT))
-  t0[-1].getBranchRoad().init(0, City._INIT_BRANCHISING_STATE)
+  t0[-1].getBranchRoad().init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
   if True:
     t1 = t0[-1].getBranchRoad().getTiles()
     t1.append(StraightRoadTile(t0[-1].getBranchDirection(), t0[-1].getBranchX(), t0[-1].getBranchZ()))
@@ -72,7 +72,7 @@ def T ():
     t1.append(BendingStraightRoadTile(t1[-1].getNextDirection(), t1[-1].getNextX(), t1[-1].getNextZ(), RIGHT))
     t1.append(BendingStraightRoadTile(t1[-1].getNextDirection(), t1[-1].getNextX(), t1[-1].getNextZ(), LEFT))
     t1.append(TJunctionRoadTile(t1[-1].getNextDirection(), t1[-1].getNextX(), t1[-1].getNextZ(), LEFT))
-    t1[-1].getBranchRoad().init(0, City._INIT_BRANCHISING_STATE)
+    t1[-1].getBranchRoad().init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
     if True:
       t2 = t1[-1].getBranchRoad().getTiles()
       t2.append(StraightRoadTile(t1[-1].getBranchDirection(), t1[-1].getBranchX(), t1[-1].getBranchZ()))
@@ -81,7 +81,7 @@ def T ():
       t2.append(BendingStraightRoadTile(t2[-1].getNextDirection(), t2[-1].getNextX(), t2[-1].getNextZ(), RIGHT))
       t2.append(BendingStraightRoadTile(t2[-1].getNextDirection(), t2[-1].getNextX(), t2[-1].getNextZ(), LEFT))
       t2.append(TJunctionRoadTile(t2[-1].getNextDirection(), t2[-1].getNextX(), t2[-1].getNextZ(), LEFT))
-      t2[-1].getBranchRoad().init(0, City._INIT_BRANCHISING_STATE)
+      t2[-1].getBranchRoad().init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
       if True:
         t3 = t2[-1].getBranchRoad().getTiles()
         t3.append(StraightRoadTile(t2[-1].getBranchDirection(), t2[-1].getBranchX(), t2[-1].getBranchZ()))
@@ -92,7 +92,7 @@ def T ():
   rs.append((r, True))
 
   r = Road()
-  r.init(0, City._INIT_BRANCHISING_STATE)
+  r.init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
   t0 = r.getTiles()
   t0.append(StraightRoadTile(EAST, x, z * 2 / 3))
   t0.append(StraightToDiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), RIGHT))
@@ -113,7 +113,7 @@ def T ():
   rs.append((r, False))
 
   r = Road()
-  r.init(0, City._INIT_BRANCHISING_STATE)
+  r.init(0, City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
   t0 = r.getTiles()
   t0.append(StraightRoadTile(EAST, x, z * 4 / 3))
   t0.append(StraightToDiagonalRoadTile(t0[-1].getNextDirection(), t0[-1].getNextX(), t0[-1].getNextZ(), LEFT))
