@@ -1319,7 +1319,7 @@ class City (object):
       x = tile.getNextX()
       z = tile.getNextZ()
 
-      road.init(self.constantTargetRangFactory(rang(destX - x, destZ - z)), City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
+      road.init(City._constantTargetRangFactory(rang(destX - x, destZ - z)), City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
       self._extendRoad(road, direction, x, z, -1, rng, branchisableChoices)
     finally:
       self._tileShapeSet.discardContained(limitBox)
@@ -1530,20 +1530,56 @@ class City (object):
   _GAP = 3
   _RANG_BY_RELDIRECTION = Reldirection.map(LEFT = -1, RIGHT = 1)
 
-  def constantTargetRangFactory (self, initialRang):
+  @staticmethod
+  def _constantTargetRangFactory (initialRang):
     return lambda road, tileI: initialRang
 
-  def circlingTargetRangFactory (self, initialRang):
+  def getConstantTargetRangFactory (self):
+    return City._constantTargetRangFactory
+
+  def _circlingTargetRangFactory (self, initialRang):
+    r_rang0 = [None]
     def _ (road, tileI):
       tiles = road.getTiles()
       assert tileI <= len(tiles)
       if len(tiles) == 0:
         return initialRang
-      rang0 = rang(tiles[0].getX() - self._centreX, tiles[0].getZ() - self._centreZ)
+
+      if r_rang0[0] is None:
+        r_rang0[0] = rang(tiles[0].getX() - self._centreX, tiles[0].getZ() - self._centreZ)
       rang1 = rang(tiles[tileI - 1].getNextX() - self._centreX, tiles[tileI - 1].getNextZ() - self._centreZ)
-      dRang = rang1 - rang0
+
+      dRang = rang1 - r_rang0[0]
       return (initialRang + dRang) % 4
     return _
+
+  def getCirclingTargetRangFactory (self):
+    return self._circlingTargetRangFactory
+
+  def getQuarterRotatingTargetRangFactory (self, reldirectionByI):
+    def __ (initialRang):
+      rangs = []
+      def _ (road, tileI):
+        tiles = road.getTiles()
+        assert tileI <= len(tiles)
+
+        for i in xrange(len(rangs), tileI + 1):
+          if i == 0:
+            rang = initialRang
+          else:
+            rang = rangs[i - 1]
+          reldirection = reldirectionByI.get(i, None)
+          if reldirection is not None:
+            rang = (rang + City._RANG_BY_RELDIRECTION[reldirection]) % 4
+          rangs.append(rang)
+
+        return rangs[tileI]
+      return _
+    return __
+
+  def getSinusoidalTargetRangFactory (self, maxRangChange, period):
+    f = 2 * math.pi / period
+    return lambda initialRang: lambda road, tileI: (initialRang + math.sin(tileI * f) * maxRangChange) % 4
 
   def addBranches (self, targetGeneration, wholeRoad, targetRangFactory, rng, branchChoices, lengthChoices, branchisableChoices):
     assert not self._plottageExtended
