@@ -1644,31 +1644,32 @@ class City (object):
       if not plotsAdded:
         break
 
+  if __debug__:
+    def _dumpTileShapeSet (self):
+      def getShapeSet (shapeSet):
+        return set(itertools.chain.from_iterable(bucket for bucket in shapeSet._buckets if bucket is not None))
+      r = []
+      for shape in getShapeSet(self._tileShapeSet):
+        box = shape.getBoundingBox()
+        r.append((box.x0, box.z0, box.x1, box.z1))
+      r.sort()
+      return tuple(r)
+
   def resetPlottage (self):
     if not self._plottageExtended:
       if not __debug__:
         return
 
     if __debug__:
-      def getShapeSet (shapeSet):
-        return set(itertools.chain.from_iterable(bucket for bucket in shapeSet._buckets if bucket is not None))
-
       oldTileShapeSet__ = None
       if not self._plottageExtended:
-        def dumpTileShapeSet ():
-          r = []
-          for shape in getShapeSet(self._tileShapeSet):
-            box = shape.getBoundingBox()
-            r.append((box.x0, box.z0, box.x1, box.z1))
-          r.sort()
-          return tuple(r)
-        oldTileShapeSet__ = dumpTileShapeSet()
+        oldTileShapeSet__ = self._dumpTileShapeSet()
 
       for road in self._primaryMainRoads:
         road.removeShapesFromSet(self._tileShapeSet)
       for shape in self._boundaryExclusions:
         self._tileShapeSet.discardContained(shape)
-      assert len(getShapeSet(self._tileShapeSet)) == 0
+      assert len(self._dumpTileShapeSet()) == 0
 
     def reminimalisePlotShapes (road):
       for tile in road.getTiles():
@@ -1681,7 +1682,7 @@ class City (object):
     self._reinitTileShapeSet()
     for road in self._primaryMainRoads:
       road.addShapesToSet(self._tileShapeSet)
-    assert oldTileShapeSet__ is None or oldTileShapeSet__ == dumpTileShapeSet()
+    assert oldTileShapeSet__ is None or oldTileShapeSet__ == self._dumpTileShapeSet()
     self._plottageExtended = False
 
   def place (self, world):
