@@ -825,9 +825,6 @@ class BendingStraightRoadTile (RoadTile):
     tile = BendingStraightRoadTile(direction, x, z, bendReldirection)
     return tile._addMinimalShapes(needsMinimalPlotShapes, shapeSet)
 
-  def branchise (self, branchReldirection, shapeSet):
-    return None
-
   def place (self, world):
     world.placeBendingStraightRoadTile(self.getShape(), self.getNextDirection())
     self._placePlots(world, DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()])
@@ -923,9 +920,6 @@ class DiagonalRoadTile (RoadTile):
     tile = DiagonalRoadTile(direction, x, z)
     return tile._addMinimalShapes(needsMinimalPlotShapes, shapeSet)
 
-  def branchise (self, branchReldirection, shapeSet):
-    return None
-
   def place (self, world):
     world.placeDiagonalRoadTile(self.getShape(), self.getNextDirection())
     self._placePlots(world, DIRECTIONS_BY_DIRECTION_WITH_RELDIRECTION[self.getDirection()])
@@ -1002,9 +996,6 @@ class StraightToDiagonalRoadTile (RoadTile):
   def create (direction, x, z, bendReldirection, shapeSet, needsMinimalPlotShapes = True):
     tile = StraightToDiagonalRoadTile(direction, x, z, bendReldirection)
     return tile._addMinimalShapes(needsMinimalPlotShapes, shapeSet)
-
-  def branchise (self, branchReldirection, shapeSet):
-    return None
 
   def place (self, world):
     world.placeStraightToDiagonalRoadTile(self.getShape(), self.getNextDirection())
@@ -1099,9 +1090,6 @@ class DiagonalToStraightRoadTile (RoadTile):
   def create (direction, x, z, bendReldirection, shapeSet, needsMinimalPlotShapes = True):
     tile = DiagonalToStraightRoadTile(direction, x, z, bendReldirection)
     return tile._addMinimalShapes(needsMinimalPlotShapes, shapeSet)
-
-  def branchise (self, branchReldirection, shapeSet):
-    return None
 
   def place (self, world):
     world.placeDiagonalToStraightRoadTile(self.getShape(), self.getNextDirection())
