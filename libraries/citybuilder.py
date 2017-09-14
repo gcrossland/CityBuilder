@@ -1434,6 +1434,8 @@ class City (object):
 
     road.setExtensionState(branchisableProb)
 
+  _GAP_MAIN_ROAD_FACTOR = 3
+
   def _buildSecondaryMainRoads (self, endpoints, primaryDirection, rng, branchisableChoices):
     assert self._primaryMainRoads is not None
     assert self._secondaryMainRoads is None
@@ -1450,35 +1452,32 @@ class City (object):
     else:
       posRoad, negRoad = self._primaryMainRoads
 
+    sortedEndpoints = []
     for x, z in endpoints:
       maj, min = coordinator(x, z)
+      sortedEndpoints.append((abs(maj), x, z, maj, min))
+    sortedEndpoints.sort()
 
-      maxMajOffset = abs(min) * BendingStraightRoadTile.OFF / BendingStraightRoadTile.LEN
-      assert isinstance(maxMajOffset, int) and maxMajOffset >= 0
-      intersectionMaj = maj
+    for _, x, z, maj, min in sortedEndpoints:
       if maj >= 0:
-        intersectionMaj = maj - maxMajOffset
         road = posRoad
       else:
-        intersectionMaj = maj + maxMajOffset
         road = negRoad
+      reldirection = reldirectionByOppositeQuadrantPair[(maj >= 0) ^ (min >= 0)]
 
       tiles = road.getTiles()
-      for i in xrange(0, len(tiles)):
-        tileMaj = coordinator(tiles[i].getX(), tiles[i].getZ())[0]
-        assert (maj >= 0 and tileMaj >= 0) or (maj <= 0 and tileMaj <= 0)
-        if abs(tileMaj) >= abs(intersectionMaj):
-          for j in xrange(i, len(tiles)):
-            tile = tiles[j]
-            tile0 = tile.branchise(reldirectionByOppositeQuadrantPair[(maj >= 0) ^ (min >= 0)], self._tileShapeSet)
-            if tile0 is not None:
-              tiles[j] = tile0
-              branchRoad = tile0.getBranchRoad()
-              secondaryMainRoads.append(branchRoad)
-              branchTiles = branchRoad.getTiles()
-              self._buildMainRoad(branchRoad, branchTiles[-1].getNextDirection(), branchTiles[-1].getNextX(), branchTiles[-1].getNextZ(), x, z, rng, branchisableChoices)
-              break
-          break
+      branchSet = self._getRoadBranchSet(tiles, reldirection)
+      for j in xrange(City._GAP * City._GAP_MAIN_ROAD_FACTOR / 2, len(tiles)):
+        if not self._roadTileHasNearbyBranches(branchSet, j, City._GAP * City._GAP_MAIN_ROAD_FACTOR):
+          tile = tiles[j]
+          tile0 = tile.branchise(reldirection, self._tileShapeSet)
+          if tile0 is not None:
+            tiles[j] = tile0
+            branchRoad = tile0.getBranchRoad()
+            secondaryMainRoads.append(branchRoad)
+            branchTiles = branchRoad.getTiles()
+            self._buildMainRoad(branchRoad, branchTiles[-1].getNextDirection(), branchTiles[-1].getNextX(), branchTiles[-1].getNextZ(), x, z, rng, branchisableChoices)
+            break
 
     self._secondaryMainRoads = tuple(secondaryMainRoads)
 
@@ -1569,6 +1568,12 @@ class City (object):
     f = 2 * math.pi / period
     return lambda initialRang: lambda road, tileI: (initialRang + math.sin(tileI * f) * maxRangChange) % 4
 
+  def _getRoadBranchSet (self, tiles, reldirection):
+    return [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == reldirection for t in tiles]
+
+  def _roadTileHasNearbyBranches (self, roadBranchSet, i, gap):
+    return any(itertools.islice(roadBranchSet, max(0, i - gap), min(i + gap + 1, len(roadBranchSet))))
+
   def addBranches (self, targetGeneration, wholeRoad, targetRangFactory, rng, branchChoices, lengthChoices, branchisableChoices):
     assert not self._plottageExtended
     for road, generation in self.getRoads(targetGeneration):
@@ -1582,20 +1587,20 @@ class City (object):
         i += 1
 
       tiles = road.getTiles()
-      reldirectionBranchTiles = Reldirection.map(
-        LEFT = [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == LEFT for t in tiles],
-        RIGHT = [isinstance(t, BranchBaseRoadTile) and t.getBranchReldirection() == RIGHT for t in tiles]
+      branchSetsByReldirection = Reldirection.map(
+        LEFT = self._getRoadBranchSet(tiles, LEFT),
+        RIGHT = self._getRoadBranchSet(tiles, RIGHT)
       )
       while i < len(tiles) - City._GAP:
-        tile = tiles[i]
         branchProb += rng(branchChoices)
         if branchProb >= 1:
           reldirection = rng(Reldirection.all)
-          if not any(itertools.islice(reldirectionBranchTiles[reldirection], i - City._GAP, i + City._GAP + 1)):
+          if not self._roadTileHasNearbyBranches(branchSetsByReldirection[reldirection], i, City._GAP):
+            tile = tiles[i]
             tile0 = tile.branchise(reldirection, self._tileShapeSet)
             if tile0 is not None:
               tiles[i] = tile0
-              reldirectionBranchTiles[reldirection][i] = True
+              branchSetsByReldirection[reldirection][i] = True
               branchProb -= 1
 
               branchRoad = tile0.getBranchRoad()
