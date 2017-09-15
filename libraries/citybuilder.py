@@ -1299,36 +1299,28 @@ class City (object):
 
     self._tileShapeSet.addUncontained(limitBox)
     try:
-      tile = StraightRoadTile.create(direction, x, z, self._tileShapeSet)
-      if tile is None:
-        return
-      tiles.append(tile)
-      assert direction == tile.getNextDirection()
-      x = tile.getNextX()
-      z = tile.getNextZ()
-
       road.init(City._constantTargetRangFactory(rang(destX - x, destZ - z)), City._INIT_EXTENSION_STATE, City._INIT_BRANCHISING_STATE)
       self._extendRoad(road, direction, x, z, -1, rng, branchisableChoices)
     finally:
       self._tileShapeSet.discardContained(limitBox)
 
   DIRECTIONS_AND_CREATORS = (
-    (0,                                                                (EAST,       lambda x, z, shapeSet: StraightRoadTile.create(EAST, x, z, shapeSet))),
-    (rang(BendingStraightRoadTile.LEN, BendingStraightRoadTile.OFF),   (EAST,       lambda x, z, shapeSet: BendingStraightRoadTile.create(EAST, x, z, RIGHT, shapeSet))),
-    (0.5,                                                              (SOUTH_EAST, lambda x, z, shapeSet: DiagonalRoadTile.create(SOUTH_EAST, x, z, shapeSet))),
-    (rang(BendingStraightRoadTile.OFF, BendingStraightRoadTile.LEN),   (SOUTH,      lambda x, z, shapeSet: BendingStraightRoadTile.create(SOUTH, x, z, LEFT, shapeSet))),
-    (1,                                                                (SOUTH,      lambda x, z, shapeSet: StraightRoadTile.create(SOUTH, x, z, shapeSet))),
-    (rang(-BendingStraightRoadTile.OFF, BendingStraightRoadTile.LEN),  (SOUTH,      lambda x, z, shapeSet: BendingStraightRoadTile.create(SOUTH, x, z, RIGHT, shapeSet))),
-    (1.5,                                                              (SOUTH_WEST, lambda x, z, shapeSet: DiagonalRoadTile.create(SOUTH_WEST, x, z, shapeSet))),
-    (rang(-BendingStraightRoadTile.LEN, BendingStraightRoadTile.OFF),  (WEST,       lambda x, z, shapeSet: BendingStraightRoadTile.create(WEST, x, z, LEFT, shapeSet))),
-    (2,                                                                (WEST,       lambda x, z, shapeSet: StraightRoadTile.create(WEST, x, z, shapeSet))),
-    (rang(-BendingStraightRoadTile.LEN, -BendingStraightRoadTile.OFF), (WEST,       lambda x, z, shapeSet: BendingStraightRoadTile.create(WEST, x, z, RIGHT, shapeSet))),
-    (2.5,                                                              (NORTH_WEST, lambda x, z, shapeSet: DiagonalRoadTile.create(NORTH_WEST, x, z, shapeSet))),
-    (rang(-BendingStraightRoadTile.OFF, -BendingStraightRoadTile.LEN), (NORTH,      lambda x, z, shapeSet: BendingStraightRoadTile.create(NORTH, x, z, LEFT, shapeSet))),
-    (3,                                                                (NORTH,      lambda x, z, shapeSet: StraightRoadTile.create(NORTH, x, z, shapeSet))),
-    (rang(BendingStraightRoadTile.OFF, -BendingStraightRoadTile.LEN),  (NORTH,      lambda x, z, shapeSet: BendingStraightRoadTile.create(NORTH, x, z, RIGHT, shapeSet))),
-    (3.5,                                                              (NORTH_EAST, lambda x, z, shapeSet: DiagonalRoadTile.create(NORTH_EAST, x, z, shapeSet))),
-    (rang(BendingStraightRoadTile.LEN, -BendingStraightRoadTile.OFF),  (EAST,       lambda x, z, shapeSet: BendingStraightRoadTile.create(EAST, x, z, LEFT, shapeSet)))
+    (0,                                                                (EAST,       lambda x, z, shapeSet, needsMinimalPlotShapes: StraightRoadTile.create(EAST, x, z, shapeSet, needsMinimalPlotShapes))),
+    (rang(BendingStraightRoadTile.LEN, BendingStraightRoadTile.OFF),   (EAST,       lambda x, z, shapeSet, needsMinimalPlotShapes: BendingStraightRoadTile.create(EAST, x, z, RIGHT, shapeSet, needsMinimalPlotShapes))),
+    (0.5,                                                              (SOUTH_EAST, lambda x, z, shapeSet, needsMinimalPlotShapes: DiagonalRoadTile.create(SOUTH_EAST, x, z, shapeSet, needsMinimalPlotShapes))),
+    (rang(BendingStraightRoadTile.OFF, BendingStraightRoadTile.LEN),   (SOUTH,      lambda x, z, shapeSet, needsMinimalPlotShapes: BendingStraightRoadTile.create(SOUTH, x, z, LEFT, shapeSet, needsMinimalPlotShapes))),
+    (1,                                                                (SOUTH,      lambda x, z, shapeSet, needsMinimalPlotShapes: StraightRoadTile.create(SOUTH, x, z, shapeSet, needsMinimalPlotShapes))),
+    (rang(-BendingStraightRoadTile.OFF, BendingStraightRoadTile.LEN),  (SOUTH,      lambda x, z, shapeSet, needsMinimalPlotShapes: BendingStraightRoadTile.create(SOUTH, x, z, RIGHT, shapeSet, needsMinimalPlotShapes))),
+    (1.5,                                                              (SOUTH_WEST, lambda x, z, shapeSet, needsMinimalPlotShapes: DiagonalRoadTile.create(SOUTH_WEST, x, z, shapeSet, needsMinimalPlotShapes))),
+    (rang(-BendingStraightRoadTile.LEN, BendingStraightRoadTile.OFF),  (WEST,       lambda x, z, shapeSet, needsMinimalPlotShapes: BendingStraightRoadTile.create(WEST, x, z, LEFT, shapeSet, needsMinimalPlotShapes))),
+    (2,                                                                (WEST,       lambda x, z, shapeSet, needsMinimalPlotShapes: StraightRoadTile.create(WEST, x, z, shapeSet, needsMinimalPlotShapes))),
+    (rang(-BendingStraightRoadTile.LEN, -BendingStraightRoadTile.OFF), (WEST,       lambda x, z, shapeSet, needsMinimalPlotShapes: BendingStraightRoadTile.create(WEST, x, z, RIGHT, shapeSet, needsMinimalPlotShapes))),
+    (2.5,                                                              (NORTH_WEST, lambda x, z, shapeSet, needsMinimalPlotShapes: DiagonalRoadTile.create(NORTH_WEST, x, z, shapeSet, needsMinimalPlotShapes))),
+    (rang(-BendingStraightRoadTile.OFF, -BendingStraightRoadTile.LEN), (NORTH,      lambda x, z, shapeSet, needsMinimalPlotShapes: BendingStraightRoadTile.create(NORTH, x, z, LEFT, shapeSet, needsMinimalPlotShapes))),
+    (3,                                                                (NORTH,      lambda x, z, shapeSet, needsMinimalPlotShapes: StraightRoadTile.create(NORTH, x, z, shapeSet, needsMinimalPlotShapes))),
+    (rang(BendingStraightRoadTile.OFF, -BendingStraightRoadTile.LEN),  (NORTH,      lambda x, z, shapeSet, needsMinimalPlotShapes: BendingStraightRoadTile.create(NORTH, x, z, RIGHT, shapeSet, needsMinimalPlotShapes))),
+    (3.5,                                                              (NORTH_EAST, lambda x, z, shapeSet, needsMinimalPlotShapes: DiagonalRoadTile.create(NORTH_EAST, x, z, shapeSet, needsMinimalPlotShapes))),
+    (rang(BendingStraightRoadTile.LEN, -BendingStraightRoadTile.OFF),  (EAST,       lambda x, z, shapeSet, needsMinimalPlotShapes: BendingStraightRoadTile.create(EAST, x, z, LEFT, shapeSet, needsMinimalPlotShapes)))
   )
   DIRECTIONS_AND_CREATORS += ((4, DIRECTIONS_AND_CREATORS[0][1]),)
   assert tuple(sorted(DIRECTIONS_AND_CREATORS)) == DIRECTIONS_AND_CREATORS
@@ -1356,13 +1348,13 @@ class City (object):
 
   def cardinal (direction):
     return Reldirection.map(
-      LEFT = lambda x, z, shapeSet: StraightToDiagonalRoadTile.create(direction, x, z, LEFT, shapeSet),
-      RIGHT = lambda x, z, shapeSet: StraightToDiagonalRoadTile.create(direction, x, z, RIGHT, shapeSet)
+      LEFT = lambda x, z, shapeSet, needsMinimalPlotShapes: StraightToDiagonalRoadTile.create(direction, x, z, LEFT, shapeSet, needsMinimalPlotShapes),
+      RIGHT = lambda x, z, shapeSet, needsMinimalPlotShapes: StraightToDiagonalRoadTile.create(direction, x, z, RIGHT, shapeSet, needsMinimalPlotShapes)
     )
   def intercardinal (direction):
     return Reldirection.map(
-      LEFT = lambda x, z, shapeSet: DiagonalToStraightRoadTile.create(direction, x, z, LEFT, shapeSet),
-      RIGHT = lambda x, z, shapeSet: DiagonalToStraightRoadTile.create(direction, x, z, RIGHT, shapeSet)
+      LEFT = lambda x, z, shapeSet, needsMinimalPlotShapes: DiagonalToStraightRoadTile.create(direction, x, z, LEFT, shapeSet, needsMinimalPlotShapes),
+      RIGHT = lambda x, z, shapeSet, needsMinimalPlotShapes: DiagonalToStraightRoadTile.create(direction, x, z, RIGHT, shapeSet, needsMinimalPlotShapes)
     )
   DIRECTION_CHANGE_CREATORS = Direction.map(
     EAST = cardinal(EAST),
@@ -1375,6 +1367,8 @@ class City (object):
     NORTH_EAST = intercardinal(NORTH_EAST)
   )
   del cardinal, intercardinal
+
+  _MINIMAL_PLOT_SHAPES_GRACE_LENGTH = 2
 
   def _extendRoad (self, road, direction, x, z, maxTiles, rng, branchisableChoices):
     assert isinstance(maxTiles, int)
@@ -1416,7 +1410,10 @@ class City (object):
         reldirection = (LEFT, RIGHT)[(RANGS_BY_DIRECTION[rqdDirection] - RANGS_BY_DIRECTION[direction]) % 4 < 2]
         creator = City.DIRECTION_CHANGE_CREATORS[direction][reldirection]
 
-      tile = creator(x, z, tileShapeSet)
+      for needsMinimalPlotShapes in ((True,), (True, False))[len(tiles) < City._MINIMAL_PLOT_SHAPES_GRACE_LENGTH]:
+        tile = creator(x, z, tileShapeSet, needsMinimalPlotShapes)
+        if tile is not None:
+          break
       if tile is None:
         break
       assert tile.getDirection() == direction
