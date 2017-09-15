@@ -1922,7 +1922,7 @@ class ConstantRng (Rng):
 
 class LinearRng (Rng):
   def __init__ (self):
-    self._v = 0
+    self._v = 0xFFFFFD
 
   def _r (self):
     v = self._v
