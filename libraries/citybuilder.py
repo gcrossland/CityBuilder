@@ -24,10 +24,17 @@ def min2 (a, b):
     return a
   return b
 
+##
+# Represents a pixellated shape at some position on a coordinate grid (with
+# axes labelled x and z).
 class Shape (object):
+  ##
+  # Returns a new Shape similar to self, but translated by the specified offset.
   def getTranslation (self, dX, dZ):
     raise NotImplementedError
 
+  ##
+  # Returns a RectangularShape giving a bounding box for self.
   def getBoundingBox (self):
     raise NotImplementedError
 
@@ -37,6 +44,8 @@ class Shape (object):
   def _any (self, subBox):
     raise NotImplementedError
 
+  ##
+  # Returns True iff self and o have a non-empty intersection.
   def intersects (self, o):
     assert isinstance(o, Shape)
     boundingBoxIntersection = self.getBoundingBox().getIntersection(o.getBoundingBox())
@@ -63,7 +72,13 @@ class Shape (object):
     assert empty(oRows)
     return False
 
+##
+# Represents a Shape the pixel set of which must exactly fill an axis-aligned
+# rectangle.
 class RectangularShape (Shape):
+  ##
+  # Initialises self to be a rectangular shape with the specified lower
+  # (inclusive) and upper (exclusive) vertices.
   def __init__ (self, x0, z0, x1, z1):
     assert isinstance(x0, int)
     assert isinstance(z0, int)
@@ -76,6 +91,8 @@ class RectangularShape (Shape):
     self.x1 = x1
     self.z1 = z1
 
+  ##
+  # Returns True iff self and o represent identical pixel sets.
   def eq (self, o):
     assert isinstance(o, RectangularShape)
     return self.x0 == o.x0 and self.z0 == o.z0 and self.x1 == o.x1 and self.z1 == o.z1
@@ -88,6 +105,9 @@ class RectangularShape (Shape):
       return False
     return o0.eq(o1)
 
+  ##
+  # Returns a RectangularShape giving the intersection of self and o, if they do
+  # intersect, or None, otherwise.
   def getIntersection (self, o):
     assert isinstance(o, RectangularShape)
     x0 = max2(self.x0, o.x0)
@@ -100,6 +120,8 @@ class RectangularShape (Shape):
       return None
     return RectangularShape(x0, z0, x1, z1)
 
+  ##
+  # Returns True iff self contains o.
   def contains (self, o):
     assert isinstance(o, RectangularShape)
     subBox = self.getIntersection(o)
@@ -126,8 +148,19 @@ class RectangularShape (Shape):
       return max2(self.x0, o.x0) < min2(self.x1, o.x1) and max2(self.z0, o.z0) < min2(self.z1, o.z1)
     return Shape.intersects(self, o)
 
+##
+# Represents a Shape the pixel set of which is described by a Template (which
+# describes an arbitrary set of pixels) and its offset on the coordinate grid.
 class ArbitraryShape (Shape):
+  ##
+  # Represents an arbitrary set of pixels on a local coordinate grid (with columns
+  # labelled x and rows labelled z) that starts at (0, 0) and extends to (+∞, +∞).
   class Template (object):
+    ##
+    # Given one string per row (z from 0 onwards), each of which has non-spaces
+    # where columns (x from 0 onwards) are filled, returns a corresponding iterable
+    # with one int per row, each of which is a bitset that specifies which columns
+    # are filled.
     @staticmethod
     def rows (*strRows):
       rows = []
@@ -140,6 +173,8 @@ class ArbitraryShape (Shape):
         rows.append(row)
       return rows
 
+    ##
+    # Initialises self to be a Template with the specified pixel set.
     def __init__ (self, rowsI, dX = None):
       rows = tuple(rowsI)
       assert len(rows) != 0
@@ -161,6 +196,8 @@ class ArbitraryShape (Shape):
     def _get (self, x, z):
       return (self._rows[z] >> x) & 0b1
 
+    ##
+    # Returns a Template representing the pixels of self rotated clockwise by 90°.
     def getClockwiseQuarterRotation (self):
       dX = self._getDZ()
       dZ = self._getDX()
@@ -174,9 +211,13 @@ class ArbitraryShape (Shape):
 
       return ArbitraryShape.Template(rows, dX)
 
+    ##
+    # Returns a Template representing the pixels of self with reversed row order.
     def getReflectionAroundXAxis (self):
       return ArbitraryShape.Template(reversed(self._rows), self._dX)
 
+    ##
+    # Returns a Template representing the pixels of self with reversed column order.
     def getReflectionAroundZAxis (self):
       rows = []
       for origRow in self._rows:
@@ -187,6 +228,9 @@ class ArbitraryShape (Shape):
         rows.append(row)
       return ArbitraryShape.Template(rows, self._dX)
 
+    ##
+    # Returns a Template representing the pixels of self first intersected with when
+    # moving to the centre from the edges.
     def getOutline (self):
       dX = self._getDX()
       dZ = self._getDZ()
@@ -212,6 +256,9 @@ class ArbitraryShape (Shape):
             break
       return ArbitraryShape.Template(rows, dX)
 
+  ##
+  # Initialises self to be a shape made by translating the given Template by the
+  # given offset.
   def __init__ (self, t, x0, z0):
     assert isinstance(t, ArbitraryShape.Template)
     self._t = t
@@ -1178,7 +1225,20 @@ assert rang(4, -4) == 3.5
 
 RANGS_BY_DIRECTION = Direction.map(EAST = 0, SOUTH_EAST = 0.5, SOUTH = 1, SOUTH_WEST = 1.5, WEST = 2, NORTH_WEST = 2.5, NORTH = 3, NORTH_EAST = 3.5)
 
+##
+# Represents a city road network tree, with main roads to other endpoints
+# eminating from the centre and further roads branching recursively. Existing
+# roads can be exended and can have additional branches added to them; roads
+# automatically come with a single layer of road-side plots and this can be
+# deepened.
 class City (object):
+  ##
+  # Initialises self to be a City with an initial network of main roads from the
+  # centre (or near to it) to each endpoint; generation 0 is comprised of these
+  # main roads; they are created as if by extendRoads() with unlimited length and
+  # the specified rng and branchisableChoices. Roads and plots are constrained
+  # both to be within the specified boundary and to not intersect with specified
+  # exclusions.
   def __init__ (self, centreX, centreZ, boundary, boundaryExclusions, endpoints, rng, branchisableChoices):
     assert isinstance(centreX, int)
     assert isinstance(centreZ, int)
@@ -1478,9 +1538,16 @@ class City (object):
 
     self._secondaryMainRoads = tuple(secondaryMainRoads)
 
+  ##
+  # Returns the greatest generation number over the whole road network (generation
+  # 0 contains the main roads created at construction; each branch of a road
+  # creates a new road of generation 1 greater).
   def getMaxGeneration (self):
     return self._maxGeneration
 
+  ##
+  # Returns an iterable with one pair per road (with [0] being the road and [1]
+  # being its generation) of the specified generation (or, if -1, all roads).
   def getRoads (self, targetGeneration = -1):
     assert isinstance(targetGeneration, int)
     assert targetGeneration == -1 or targetGeneration >= 0
@@ -1518,6 +1585,8 @@ class City (object):
   def _constantTargetRangFactory (initialRang):
     return lambda road, tileI: initialRang
 
+  ##
+  # Returns a factory for keeping a road straight.
   def getConstantTargetRangFactory (self):
     return City._constantTargetRangFactory
 
@@ -1537,9 +1606,13 @@ class City (object):
       return (initialRang + dRang) % 4
     return _
 
+  ##
+  # Returns a factory for bending a road towards the centre.
   def getCirclingTargetRangFactory (self):
     return self._circlingTargetRangFactory
 
+  ##
+  # Returns a factory for bending a road by 90° at specified offsets.
   def getQuarterRotatingTargetRangFactory (self, reldirectionByI):
     def __ (initialRang):
       rangs = []
@@ -1561,6 +1634,8 @@ class City (object):
       return _
     return __
 
+  ##
+  # Returns a factory for bending a road sinusoidally.
   def getSinusoidalTargetRangFactory (self, maxRangChange, period):
     f = 2 * math.pi / period
     return lambda initialRang: lambda road, tileI: (initialRang + math.sin(tileI * f) * maxRangChange) % 4
@@ -1571,6 +1646,24 @@ class City (object):
   def _roadTileHasNearbyBranches (self, roadBranchSet, i, gap):
     return any(itertools.islice(roadBranchSet, max(0, i - gap), min(i + gap + 1, len(roadBranchSet))))
 
+  ##
+  # Finds tiles in roads of the specified generation and turns some of them into
+  # branches (and then extends those).
+  #
+  # @param targetGeneration the generation of roads to add branches to or -1, to
+  # include all generations.
+  # @param wholeRoad if True, the whole of each road is processed; if False, each
+  # road is only processed from the the point where the last call to
+  # addBranches(wholeRoad = False) that processed the road finished doing so.
+  # @param targetRangFactory a factory for functions that specify how new roads
+  # should bend.
+  # @param rng a function to randomly select an element from a sequence (such as a
+  # bound random.Random.choice()).
+  # @param branchChoices a sequence of probability values; for each road tile in a
+  # road, one of the sequence will be selected (with rng) and added to a running
+  # total probability; once that running total reaches 1, a branch can be added.
+  # @param lengthChoices (as extendRoads())
+  # @param branchisableChoices (as extendRoads())
   def addBranches (self, targetGeneration, wholeRoad, targetRangFactory, rng, branchChoices, lengthChoices, branchisableChoices):
     assert not self._plottageExtended
     for road, generation in self.getRoads(targetGeneration):
@@ -1611,12 +1704,28 @@ class City (object):
       if not wholeRoad:
         road.setBranchisingState((i, branchProb))
 
+  ##
+  # Finds roads of the specified generation and extends them.
+  #
+  # @param targetGeneration the generation of roads to add branches to or -1, to
+  # include all generations.
+  # @param rng a function to randomly select an element from a sequence (such as a
+  # bound random.Random.choice()).
+  # @param lengthChoices a sequence of possible maximum extension lengths, one of
+  # which will be selected (with rng) for each road extended
+  # @param branchisableChoices a sequence of probability values; for each road
+  # tile added, one of the sequence will be selected (with rng) and added to a
+  # running total probability; once that running total reaches 1, a road tile that
+  # can later be turned into a branch will be added (even if that means
+  # temporarily turning the road away from its target angle).
   def extendRoads (self, targetGeneration, rng, lengthChoices, branchisableChoices):
     assert not self._plottageExtended
     for road, generation in self.getRoads(targetGeneration):
       tiles = road.getTiles()
       self._extendRoad(road, tiles[-1].getNextDirection(), tiles[-1].getNextX(), tiles[-1].getNextZ(), rng(lengthChoices), rng, branchisableChoices)
 
+  ##
+  # Adds at most the specified number of new plots behind each existing one.
   def extendPlottage (self, count = 0x3FFFFFFF):
     if __debug__:
       if not self._plottageExtended:
@@ -1645,6 +1754,8 @@ class City (object):
       r.sort()
       return tuple(r)
 
+  ##
+  # Resets the number of plots to the minimum.
   def resetPlottage (self):
     if not self._plottageExtended:
       if not __debug__:
